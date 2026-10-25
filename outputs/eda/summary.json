@@ -27,7 +27,12 @@
       "train": true
     },
     "label_filename_mismatches": 0,
-    "file_names_shared_by_train_and_test": 0
+    "file_names_shared_by_train_and_test": 0,
+    "official_metadata": {
+      "files_not_in_official_release": 0,
+      "split_differs_from_official": 0,
+      "label_differs_from_official": 0
+    }
   },
   "classes": {
     "num_classes": 200,
@@ -267,5 +272,56 @@
     },
     "%_captions_mentioning_left_or_right": 0.043,
     "%_captions_with_a_color_word": 97.62
+  },
+  "augment": {
+    "n_train_images_with_box": 5994,
+    "bird_area_%_of_image": {
+      "min": 5.005,
+      "p5": 11.275,
+      "median": 32.215,
+      "mean": 34.969,
+      "p95": 69.499,
+      "max": 100.0
+    },
+    "%_images_bird_under_10%_of_image": 3.35,
+    "center_crop": {
+      "resize_256_center_crop_224": {
+        "mean_bird_visible_%": 89.0,
+        "%_images_bird_fully_inside": 33.47,
+        "%_images_less_than_half_the_bird": 0.2
+      },
+      "resize_224_center_crop_224": {
+        "mean_bird_visible_%": 94.4,
+        "%_images_bird_fully_inside": 54.42,
+        "%_images_less_than_half_the_bird": 0.03
+      }
+    },
+    "random_resized_crop_by_scale_min": [
+      {
+        "scale_min": 0.08,
+        "mean_bird_visible_%": 64.1,
+        "%_crops_with_less_than_half_the_bird": 33.16
+      },
+      {
+        "scale_min": 0.25,
+        "mean_bird_visible_%": 75.7,
+        "%_crops_with_less_than_half_the_bird": 15.03
+      },
+      {
+        "scale_min": 0.4,
+        "mean_bird_visible_%": 84.1,
+        "%_crops_with_less_than_half_the_bird": 4.08
+      },
+      {
+        "scale_min": 0.6,
+        "mean_bird_visible_%": 93.3,
+        "%_crops_with_less_than_half_the_bird": 0.22
+      },
+      {
+        "scale_min": 0.8,
+        "mean_bird_visible_%": 98.6,
+        "%_crops_with_less_than_half_the_bird": 0.0
+      }
+    ]
   }
 }

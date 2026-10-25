@@ -31,7 +31,7 @@ matplotlib.use("Agg")  # save figures without needing a display
 import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
-from PIL import Image  # noqa: E402
+from PIL import Image, ImageEnhance, ImageOps  # noqa: E402
 
 TRAIN_REPO = "Multimodal-Fatima/CUB_train"
 TEST_REPO = "Multimodal-Fatima/CUB_test"
@@ -70,6 +70,7 @@ class EDAContext:
     recompute: bool = False
     near_dup_threshold: int = 6  # 4 misses a real train/test duplicate on CUB (Marsh Wren, d=6)
     dup_review: Path | None = None  # hand-written verdicts for near-duplicate pairs
+    cub_meta: Path | None = None  # folder with the official CUB text files (optional)
     summary: dict = field(default_factory=dict)
     _metadata: pd.DataFrame | None = None
     _image_df: pd.DataFrame | None = None
@@ -187,6 +188,33 @@ def load_splits(sample: int | None = None, seed: int = 42, cache_dir: str | None
     return train, test
 
 
+def load_official_metadata(meta_dir: Path | None) -> pd.DataFrame | None:
+    """Official CUB split, class and bird bounding box per file name, or None if not downloaded.
+
+    The Hugging Face copy has no boxes, so these text files come from the original
+    CUB_200_2011.tgz (images.txt, train_test_split.txt, image_class_labels.txt, classes.txt,
+    bounding_boxes.txt). Boxes are x, y, width, height in original pixels.
+    """
+    names = ("images", "train_test_split", "image_class_labels", "classes", "bounding_boxes")
+    if meta_dir is None or not all((Path(meta_dir) / f"{n}.txt").exists() for n in names):
+        return None
+
+    def read(name, cols):
+        return pd.read_csv(Path(meta_dir) / f"{name}.txt", sep=" ", header=None, names=cols)
+
+    df = (read("images", ["image_id", "path"])
+          .merge(read("train_test_split", ["image_id", "is_train"]), on="image_id")
+          .merge(read("image_class_labels", ["image_id", "class_id"]), on="image_id")
+          .merge(read("classes", ["class_id", "class_name"]), on="class_id")
+          .merge(read("bounding_boxes", ["image_id", "bbox_x", "bbox_y", "bbox_w", "bbox_h"]), on="image_id"))
+    return pd.DataFrame({
+        "file_name": df.path.map(lambda p: Path(p).name),
+        "official_split": np.where(df.is_train == 1, "train", "test"),
+        "official_class": df.class_name.map(normalize_name),
+        "bbox_x": df.bbox_x, "bbox_y": df.bbox_y, "bbox_w": df.bbox_w, "bbox_h": df.bbox_h,
+    })
+
+
 def label_names(ds) -> list[str] | None:
     feature = ds.features.get("label")
     return list(feature.names) if hasattr(feature, "names") else None
@@ -244,6 +272,17 @@ def step_inspect(ctx: EDAContext):
             len(set(meta.loc[meta.split == "train", "file_name"])
                 & set(meta.loc[meta.split == "test", "file_name"]))
         )
+
+    # Same split and labels as the official release? Needed for a fair benchmark against papers
+    official = load_official_metadata(ctx.cub_meta)
+    if official is not None and "file_name" in meta:
+        joined = meta.merge(official, on="file_name", how="left")
+        known = joined.official_split.notna()
+        info["official_metadata"] = {
+            "files_not_in_official_release": int((~known).sum()),
+            "split_differs_from_official": int((known & (joined.split != joined.official_split)).sum()),
+            "label_differs_from_official": int((known & (joined.label_norm != joined.official_class)).sum()),
+        }
 
     ctx.summary["inspect"] = info
 
@@ -765,6 +804,158 @@ def step_captions(ctx: EDAContext):
 
 
 # --------------------------------------------------------------------------
+# Section 6 - augmentation proposal (visual check of candidate transforms)
+# These PIL versions mimic torchvision's RandomHorizontalFlip, RandomRotation,
+# ColorJitter and RandomResizedCrop so the effect can be judged before
+# Member 2 writes the real transforms.
+# --------------------------------------------------------------------------
+CROP_SCALE_LOWER_BOUNDS = (0.08, 0.25, 0.4, 0.6, 0.8)  # 0.08 is torchvision's default
+
+
+def aug_rotate(img, rng, degrees=15):
+    return img.rotate(rng.uniform(-degrees, degrees), resample=Image.BILINEAR)
+
+
+def aug_color_jitter(img, rng, strength=0.2):
+    for enhancer in (ImageEnhance.Brightness, ImageEnhance.Contrast, ImageEnhance.Color):
+        img = enhancer(img).enhance(rng.uniform(1 - strength, 1 + strength))
+    return img
+
+
+def aug_hue_shift(img, rng, max_shift=0.4):
+    hsv = np.asarray(img.convert("HSV")).copy()
+    shift = int(rng.uniform(-max_shift, max_shift) * 255)
+    hsv[..., 0] = (hsv[..., 0].astype(int) + shift) % 256
+    return Image.fromarray(hsv, mode="HSV").convert("RGB")
+
+
+def sample_resized_crop_box(width, height, rng, scale=(0.08, 1.0), ratio=(3 / 4, 4 / 3)):
+    """(left, top, w, h) of a RandomResizedCrop window, sampled the same way torchvision does."""
+    area = width * height
+    for _ in range(10):
+        target = area * rng.uniform(*scale)
+        aspect = np.exp(rng.uniform(np.log(ratio[0]), np.log(ratio[1])))
+        w, h = int(round(np.sqrt(target * aspect))), int(round(np.sqrt(target / aspect)))
+        if 0 < w <= width and 0 < h <= height:
+            return rng.randint(0, width - w), rng.randint(0, height - h), w, h
+    # Fallback: central crop with the aspect ratio clamped to the allowed range
+    in_ratio = width / height
+    w, h = width, height
+    if in_ratio < min(ratio):
+        h = int(round(w / min(ratio)))
+    elif in_ratio > max(ratio):
+        w = int(round(h * max(ratio)))
+    return (width - w) // 2, (height - h) // 2, w, h
+
+
+def aug_random_resized_crop(img, rng, scale=(0.08, 1.0), ratio=(3 / 4, 4 / 3), size=224):
+    left, top, w, h = sample_resized_crop_box(*img.size, rng, scale, ratio)
+    return img.crop((left, top, left + w, top + h)).resize((size, size), Image.BILINEAR)
+
+
+def visible_fraction(box, crop) -> float:
+    """Share of the bird box (x, y, w, h) that lies inside the crop window (x, y, w, h)."""
+    bx, by, bw, bh = box
+    cx, cy, cw, ch = crop
+    overlap_w = max(0.0, min(bx + bw, cx + cw) - max(bx, cx))
+    overlap_h = max(0.0, min(by + bh, cy + ch) - max(by, cy))
+    return overlap_w * overlap_h / (bw * bh) if bw * bh > 0 else 0.0
+
+
+def bird_crop_analysis(ctx: EDAContext, crops_per_image: int = 10) -> dict | None:
+    """How big the bird is in the frame, and how much of it each cropping policy keeps (train only)."""
+    official = load_official_metadata(ctx.cub_meta)
+    fig_path = ctx.fig_dir / "06_bird_size_and_crops.png"
+    if official is None:
+        print("  no official CUB metadata: skipping the bounding-box analysis")
+        fig_path.unlink(missing_ok=True)  # don't leave results from an earlier run
+        return None
+    df = ctx.image_df
+    train = df[(df.split == "train") & (df.error == "")].merge(official, on="file_name")
+    boxes = list(zip(train.bbox_x, train.bbox_y, train.bbox_w, train.bbox_h))
+    sizes = list(zip(train.width, train.height))
+    bird_fraction = train.bbox_w * train.bbox_h / (train.width * train.height)
+
+    # Validation/test policy: resize the shorter side to `resize`, then take the central 224x224
+    center = {}
+    for resize in (256, 224):
+        kept = []
+        for (w, h), box in zip(sizes, boxes):
+            side = 224 * min(w, h) / resize
+            kept.append(visible_fraction(box, ((w - side) / 2, (h - side) / 2, side, side)))
+        kept = np.array(kept)
+        center[f"resize_{resize}_center_crop_224"] = {
+            "mean_bird_visible_%": round(100 * float(kept.mean()), 1),
+            "%_images_bird_fully_inside": round(100 * float((kept >= 0.999).mean()), 2),
+            "%_images_less_than_half_the_bird": round(100 * float((kept < 0.5).mean()), 2),
+        }
+
+    rng = random.Random(ctx.seed)
+    by_scale = []
+    for low in CROP_SCALE_LOWER_BOUNDS:
+        kept = np.array([visible_fraction(box, sample_resized_crop_box(w, h, rng, scale=(low, 1.0)))
+                         for (w, h), box in zip(sizes, boxes) for _ in range(crops_per_image)])
+        by_scale.append({"scale_min": low, "mean_bird_visible_%": round(100 * kept.mean(), 1),
+                         "%_crops_with_less_than_half_the_bird": round(100 * (kept < 0.5).mean(), 2)})
+
+    fig, axes = plt.subplots(1, 2, figsize=(14, 4))
+    axes[0].hist(100 * bird_fraction, bins=50)
+    axes[0].set(title="Bird bounding box as % of the image (train)", xlabel="% of image area",
+                ylabel="images")
+    scale_df = pd.DataFrame(by_scale)
+    axes[1].plot(scale_df.scale_min, scale_df["%_crops_with_less_than_half_the_bird"], marker="o",
+                 color="tab:red")
+    axes[1].set(title="RandomResizedCrop: crops that keep less than half the bird",
+                xlabel="lower bound of the crop scale", ylabel="% of random crops")
+    save_fig(fig, fig_path)
+
+    return {
+        "n_train_images_with_box": int(len(train)),
+        "bird_area_%_of_image": describe(100 * bird_fraction),
+        "%_images_bird_under_10%_of_image": round(100 * float((bird_fraction < 0.1).mean()), 2),
+        "center_crop": center,
+        "random_resized_crop_by_scale_min": by_scale,
+    }
+
+
+def step_augment(ctx: EDAContext):
+    rng = random.Random(ctx.seed)
+    picks = rng.sample(range(len(ctx.train)), k=min(3, len(ctx.train)))
+    images = [ctx.train[i]["image"].convert("RGB") for i in picks]
+
+    proposed = [
+        ("original", lambda im: im),
+        ("horizontal flip", ImageOps.mirror),
+        ("rotation +-15", lambda im: aug_rotate(im, rng)),
+        ("brightness/contrast/sat 0.2", lambda im: aug_color_jitter(im, rng)),
+        ("resized crop scale 0.6-1", lambda im: aug_random_resized_crop(im, rng, scale=(0.6, 1.0))),
+    ]
+    rejected = [
+        ("original", lambda im: im),
+        ("hue jitter 0.4", lambda im: aug_hue_shift(im, rng)),
+        ("resized crop 0.08-1 (default)", lambda im: aug_random_resized_crop(im, rng)),
+        ("resized crop 0.08-1 (again)", lambda im: aug_random_resized_crop(im, rng)),
+        ("vertical flip", ImageOps.flip),
+    ]
+    for name, transforms in (("proposed", proposed), ("rejected", rejected)):
+        fig, axes = plt.subplots(len(images), len(transforms),
+                                 figsize=(3 * len(transforms), 3 * len(images)), squeeze=False)
+        for row, img in zip(axes, images):
+            for ax, (title, fn) in zip(row, transforms):
+                ax.imshow(fn(img))
+                ax.set_title(title, fontsize=9)
+                ax.axis("off")
+        fig.suptitle(f"Augmentations - {name}")
+        save_fig(fig, ctx.fig_dir / f"06_augmentation_{name}.png")
+
+    crops = bird_crop_analysis(ctx)
+    if crops is None:
+        ctx.summary.pop("augment", None)
+    else:
+        ctx.summary["augment"] = crops
+
+
+# --------------------------------------------------------------------------
 # Entry point
 # --------------------------------------------------------------------------
 STEPS = {
@@ -773,6 +964,7 @@ STEPS = {
     "images": step_images,
     "quality": step_quality,
     "captions": step_captions,
+    "augment": step_augment,
 }
 
 
@@ -785,6 +977,8 @@ def main(argv=None):
     parser.add_argument("--near-dup-threshold", type=int, default=6, help="max differing dHash bits")
     parser.add_argument("--dup-review", default="configs/eda/near_duplicate_review.csv",
                         help="CSV of by-eye verdicts for near-duplicate pairs")
+    parser.add_argument("--cub-meta", default="data/CUB_200_2011",
+                        help="folder with the official CUB text files (optional, see docs)")
     parser.add_argument("--recompute", action="store_true", help="ignore the cached image stats")
     parser.add_argument("--cache-dir", default=None, help="Hugging Face cache folder")
     args = parser.parse_args(argv)
@@ -792,7 +986,7 @@ def main(argv=None):
     train, test = load_splits(args.sample, args.seed, args.cache_dir)
     ctx = EDAContext(train=train, test=test, out=Path(args.out), seed=args.seed, sample=args.sample,
                      recompute=args.recompute, near_dup_threshold=args.near_dup_threshold,
-                     dup_review=Path(args.dup_review))
+                     dup_review=Path(args.dup_review), cub_meta=Path(args.cub_meta))
     for name in args.steps:
         print(f"[eda] step: {name}")
         STEPS[name](ctx)
