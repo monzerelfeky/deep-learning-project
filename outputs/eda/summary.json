@@ -180,6 +180,11 @@
     "near_duplicate_threshold_bits": 6,
     "near_duplicate_pairs": 12,
     "near_duplicate_pairs_across_train_test": 5,
-    "near_duplicate_pairs_with_different_labels": 4
+    "near_duplicate_pairs_with_different_labels": 4,
+    "near_duplicate_verdicts": {
+      "duplicate": 9,
+      "false_positive": 3
+    },
+    "train_images_to_drop_for_leakage": 3
   }
 }

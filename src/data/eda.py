@@ -58,6 +58,7 @@ class EDAContext:
     sample: int | None = None
     recompute: bool = False
     near_dup_threshold: int = 6  # 4 misses a real train/test duplicate on CUB (Marsh Wren, d=6)
+    dup_review: Path | None = None  # hand-written verdicts for near-duplicate pairs
     summary: dict = field(default_factory=dict)
     _metadata: pd.DataFrame | None = None
     _image_df: pd.DataFrame | None = None
@@ -498,6 +499,20 @@ def near_duplicate_pairs(hashes: list[str], threshold: int, chunk: int = 1024):
     return pairs
 
 
+def attach_review(near: pd.DataFrame, review_path: Path | None) -> pd.DataFrame:
+    """Add the by-eye verdict of each pair from a CSV with columns file_a, file_b, verdict, note.
+
+    Hashes give false positives, so a pair only counts as a duplicate once someone has looked at it.
+    Pairs are matched by file name in either order; pairs missing from the file are "unreviewed".
+    """
+    verdicts = {}
+    if review_path is not None and Path(review_path).exists():
+        for r in pd.read_csv(review_path).itertuples():
+            verdicts[frozenset((r.file_a, r.file_b))] = (r.verdict, r.note)
+    found = [verdicts.get(frozenset(pair), ("unreviewed", "")) for pair in zip(near.file_a, near.file_b)]
+    return near.assign(verdict=[v for v, _ in found], note=[n for _, n in found])
+
+
 def step_quality(ctx: EDAContext):
     df, meta = ctx.image_df, ctx.metadata
     info = {}
@@ -543,29 +558,48 @@ def step_quality(ctx: EDAContext):
     info["near_duplicate_pairs_by_threshold"] = {
         t: int((near.hamming <= t).sum()) for t in NEAR_DUP_THRESHOLDS_COMPARED
     }
-    near = near[near.hamming <= ctx.near_dup_threshold]
+    near = attach_review(near[near.hamming <= ctx.near_dup_threshold], ctx.dup_review)
+    near = near.assign(cross=near.split_a != near.split_b)
     near.sort_values("hamming").to_csv(ctx.table_dir / "near_duplicates.csv", index=False)
-    cross = near[near.split_a != near.split_b]
     info["near_duplicate_threshold_bits"] = ctx.near_dup_threshold
     info["near_duplicate_pairs"] = int(len(near))
-    info["near_duplicate_pairs_across_train_test"] = int(len(cross))
+    info["near_duplicate_pairs_across_train_test"] = int(near.cross.sum())
     info["near_duplicate_pairs_with_different_labels"] = int((~near.same_label).sum()) if len(near) else 0
+    info["near_duplicate_verdicts"] = near.verdict.value_counts().to_dict()
 
-    # Show the closest pairs side by side, train/test (leakage) pairs first:
-    # hashes can give false positives, so look at them
+    # Leakage: train images whose photo is also in test. Drop the train copy, never the test one,
+    # so test results stay comparable to published ones
+    leak = [(r.idx, r.file_name, "exact copy in test")
+            for r in groups[groups.md5.isin(splits_per_group[splits_per_group > 1].index)
+                            & (groups.split == "train")].itertuples()]
+    for r in near[near.cross & (near.verdict == "duplicate")].itertuples():
+        train_side, test_side = ((r.idx_a, r.file_a), (r.idx_b, r.file_b)) if r.split_a == "train" \
+            else ((r.idx_b, r.file_b), (r.idx_a, r.file_a))
+        leak.append((*train_side, f"same photo as test #{test_side[0]} {test_side[1]}"))
+    pd.DataFrame(leak, columns=["train_idx", "train_file", "reason"]).to_csv(
+        ctx.table_dir / "leakage_train_to_drop.csv", index=False
+    )
+    info["train_images_to_drop_for_leakage"] = len(leak)
+
+    # Every pair side by side with its verdict: confirmed duplicates first (train/test leaks on top)
     fig_path = ctx.fig_dir / "04_near_duplicates.png"
     fig_path.unlink(missing_ok=True)
     if len(near):
-        top = (near.assign(cross=near.split_a != near.split_b)
-               .sort_values(["cross", "hamming"], ascending=[False, True]).head(8))
-        fig, axes = plt.subplots(len(top), 2, figsize=(7, 3 * len(top)), squeeze=False)
+        rank = near.verdict.map({"duplicate": 0, "unreviewed": 1}).fillna(2)
+        top = (near.assign(rank=rank).sort_values(["rank", "cross", "hamming"], ascending=[True, False, True])
+               .head(12))
+        verdict_text = {"duplicate": ("DUPLICATE", "tab:green"), "unreviewed": ("not reviewed", "gray")}
+        fig, axes = plt.subplots(len(top), 2, figsize=(7, 3.2 * len(top)), squeeze=False)
         for row_axes, r in zip(axes, top.itertuples()):
+            text, color = verdict_text.get(r.verdict, ("false positive: different photos", "tab:red"))
+            if r.verdict == "duplicate" and r.cross:
+                text += " - train/test leak"
             for ax, split, idx, label in ((row_axes[0], r.split_a, r.idx_a, r.label_a),
                                           (row_axes[1], r.split_b, r.idx_b, r.label_b)):
                 ax.imshow(ctx.split(split)[int(idx)]["image"].convert("RGB"))
-                ax.set_title(f"{split} #{idx}\n{label}  (d={r.hamming})", fontsize=8)
+                ax.set_title(f"{split} #{idx}  {label}  (d={r.hamming})\n{text}", fontsize=8, color=color)
                 ax.axis("off")
-        fig.suptitle("Closest near-duplicate pairs", y=1.01)
+        fig.suptitle("Near-duplicate candidates and their by-eye verdicts", y=1.01)
         save_fig(fig, fig_path)
 
     ctx.summary["quality"] = info
@@ -589,13 +623,16 @@ def main(argv=None):
     parser.add_argument("--sample", type=int, default=None, help="use N random images per split")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--near-dup-threshold", type=int, default=6, help="max differing dHash bits")
+    parser.add_argument("--dup-review", default="configs/eda/near_duplicate_review.csv",
+                        help="CSV of by-eye verdicts for near-duplicate pairs")
     parser.add_argument("--recompute", action="store_true", help="ignore the cached image stats")
     parser.add_argument("--cache-dir", default=None, help="Hugging Face cache folder")
     args = parser.parse_args(argv)
 
     train, test = load_splits(args.sample, args.seed, args.cache_dir)
     ctx = EDAContext(train=train, test=test, out=Path(args.out), seed=args.seed, sample=args.sample,
-                     recompute=args.recompute, near_dup_threshold=args.near_dup_threshold)
+                     recompute=args.recompute, near_dup_threshold=args.near_dup_threshold,
+                     dup_review=Path(args.dup_review))
     for name in args.steps:
         print(f"[eda] step: {name}")
         STEPS[name](ctx)
