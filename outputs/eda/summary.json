@@ -28,5 +28,29 @@
     },
     "label_filename_mismatches": 0,
     "file_names_shared_by_train_and_test": 0
+  },
+  "classes": {
+    "num_classes": 200,
+    "train": {
+      "min": 29,
+      "max": 30,
+      "mean": 29.97,
+      "std": 0.17,
+      "imbalance_ratio_max_over_min": 1.03,
+      "classes_with_zero_images": []
+    },
+    "test": {
+      "min": 11,
+      "max": 30,
+      "mean": 28.97,
+      "std": 2.92,
+      "imbalance_ratio_max_over_min": 2.73,
+      "classes_with_zero_images": []
+    },
+    "val_images_per_class_for_smallest_class": {
+      "0.1": 2,
+      "0.15": 4,
+      "0.2": 5
+    }
   }
 }

@@ -1,0 +1,201 @@
+label_name,train,test
+Artic Tern,29,29
+Bank Swallow,29,30
+Common Raven,29,30
+House Wren,29,30
+Nelson Sharp tailed Sparrow,29,30
+Red cockaded Woodpecker,29,29
+American Pipit,30,30
+American Redstart,30,30
+Anna Hummingbird,30,30
+Baird Sparrow,30,20
+Baltimore Oriole,30,30
+Barn Swallow,30,30
+Bay breasted Warbler,30,30
+Belted Kingfisher,30,30
+American Three toed Woodpecker,30,20
+American Goldfinch,30,30
+Black and white Warbler,30,30
+Black billed Cuckoo,30,30
+Black capped Vireo,30,21
+Black footed Albatross,30,30
+Black throated Blue Warbler,30,29
+Black throated Sparrow,30,30
+Blue Grosbeak,30,30
+Blue Jay,30,30
+Blue headed Vireo,30,30
+Blue winged Warbler,30,30
+Boat tailed Grackle,30,30
+Bobolink,30,30
+Bohemian Waxwing,30,30
+Brandt Cormorant,30,29
+Bewick Wren,30,30
+Acadian Flycatcher,30,29
+Brewer Sparrow,30,29
+Bronzed Cowbird,30,30
+Brown Pelican,30,30
+Brown Creeper,30,29
+Cactus Wren,30,30
+California Gull,30,30
+Canada Warbler,30,30
+Brown Thrasher,30,29
+Cape May Warbler,30,30
+Cardinal,30,27
+Carolina Wren,30,30
+Caspian Tern,30,30
+Cedar Waxwing,30,30
+Cerulean Warbler,30,30
+Chestnut sided Warbler,30,30
+Cape Glossy Starling,30,30
+Chipping Sparrow,30,30
+Chuck will Widow,30,26
+Clay colored Sparrow,30,29
+Clark Nutcracker,30,30
+Cliff Swallow,30,30
+Common Tern,30,30
+Common Yellowthroat,30,30
+Crested Auklet,30,14
+Dark eyed Junco,30,30
+Downy Woodpecker,30,30
+Eared Grebe,30,30
+Eastern Towhee,30,30
+Elegant Tern,30,30
+European Goldfinch,30,30
+Brewer Blackbird,30,29
+American Crow,30,30
+Field Sparrow,30,29
+Evening Grosbeak,30,30
+Forsters Tern,30,30
+Fish Crow,30,30
+Frigatebird,30,30
+Gadwall,30,30
+Geococcyx,30,30
+Florida Jay,30,30
+Golden winged Warbler,30,29
+Grasshopper Sparrow,30,30
+Gray Catbird,30,29
+Gray Kingbird,30,29
+Gray crowned Rosy Finch,30,29
+Great Crested Flycatcher,30,30
+Great Grey Shrike,30,30
+Fox Sparrow,30,30
+Green Jay,30,27
+Green Kingfisher,30,30
+Green tailed Towhee,30,30
+Green Violetear,30,30
+Harris Sparrow,30,30
+Heermann Gull,30,30
+Henslow Sparrow,30,30
+Groove billed Ani,30,30
+Herring Gull,30,30
+Hooded Merganser,30,30
+Hooded Warbler,30,30
+Hooded Oriole,30,30
+Horned Grebe,30,30
+Horned Lark,30,30
+Horned Puffin,30,30
+Glaucous winged Gull,30,29
+House Sparrow,30,30
+Indigo Bunting,30,30
+Kentucky Warbler,30,29
+Ivory Gull,30,30
+Lazuli Bunting,30,28
+Le Conte Sparrow,30,29
+Least Auklet,30,11
+Laysan Albatross,30,30
+Least Tern,30,30
+Lincoln Sparrow,30,29
+Loggerhead Shrike,30,30
+Long tailed Jaeger,30,30
+Louisiana Waterthrush,30,30
+Magnolia Warbler,30,29
+Mallard,30,30
+Least Flycatcher,30,29
+Mangrove Cuckoo,30,23
+Marsh Wren,30,30
+Mourning Warbler,30,30
+Mockingbird,30,30
+Myrtle Warbler,30,30
+Nashville Warbler,30,30
+Nighthawk,30,30
+Northern Flicker,30,30
+Northern Fulmar,30,30
+Northern Waterthrush,30,30
+Olive sided Flycatcher,30,30
+Orange crowned Warbler,30,30
+Orchard Oriole,30,29
+Ovenbird,30,30
+Pacific Loon,30,30
+Black Tern,30,30
+Painted Bunting,30,28
+Palm Warbler,30,30
+Pelagic Cormorant,30,30
+Parakeet Auklet,30,23
+Pied Kingfisher,30,30
+Pied billed Grebe,30,30
+Pigeon Guillemot,30,28
+Philadelphia Vireo,30,29
+Pine Grosbeak,30,30
+Pine Warbler,30,30
+Pomarine Jaeger,30,30
+Prairie Warbler,30,30
+Prothonotary Warbler,30,30
+Purple Finch,30,30
+Red bellied Woodpecker,30,30
+Pileated Woodpecker,30,30
+Red breasted Merganser,30,30
+Red eyed Vireo,30,30
+Red faced Cormorant,30,22
+Red headed Woodpecker,30,30
+Red legged Kittiwake,30,23
+Red winged Blackbird,30,30
+Rhinoceros Auklet,30,18
+Ring billed Gull,30,30
+Ringed Kingfisher,30,30
+Rock Wren,30,30
+Rose breasted Grosbeak,30,30
+Ruby throated Hummingbird,30,30
+Rufous Hummingbird,30,30
+Rusty Blackbird,30,30
+Sage Thrasher,30,30
+Savannah Sparrow,30,30
+Sayornis,30,30
+Scarlet Tanager,30,30
+Scissor tailed Flycatcher,30,30
+Scott Oriole,30,30
+Seaside Sparrow,30,30
+Shiny Cowbird,30,30
+Slaty backed Gull,30,20
+Song Sparrow,30,30
+Sooty Albatross,30,28
+Spotted Catbird,30,15
+Summer Tanager,30,30
+Swainson Warbler,30,26
+Tennessee Warbler,30,29
+Tree Sparrow,30,30
+Tree Swallow,30,30
+Tropical Kingbird,30,30
+Vermilion Flycatcher,30,30
+Vesper Sparrow,30,30
+Warbling Vireo,30,30
+Western Grebe,30,30
+Western Gull,30,30
+Western Meadowlark,30,30
+Western Wood Pewee,30,30
+Whip poor Will,30,19
+White Pelican,30,20
+White breasted Kingfisher,30,30
+White breasted Nuthatch,30,30
+White crowned Sparrow,30,30
+White eyed Vireo,30,30
+White necked Raven,30,30
+White throated Sparrow,30,30
+Wilson Warbler,30,30
+Winter Wren,30,30
+Worm eating Warbler,30,29
+Yellow Warbler,30,30
+Yellow bellied Flycatcher,30,29
+Yellow billed Cuckoo,30,29
+Yellow breasted Chat,30,29
+Yellow headed Blackbird,30,26
+Yellow throated Vireo,30,29

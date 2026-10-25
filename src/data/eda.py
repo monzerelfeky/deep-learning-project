@@ -235,10 +235,61 @@ def step_inspect(ctx: EDAContext):
 
 
 # --------------------------------------------------------------------------
+# Section 2 - class distribution
+# --------------------------------------------------------------------------
+def step_classes(ctx: EDAContext):
+    meta = ctx.metadata
+    counts = meta.groupby(["label_name", "split"]).size().unstack(fill_value=0)
+    for split in ("train", "test"):
+        if split not in counts:
+            counts[split] = 0
+    counts = counts[["train", "test"]].sort_values("train")
+    counts.to_csv(ctx.table_dir / "class_counts.csv")
+
+    fig, axes = plt.subplots(1, 2, figsize=(14, 4))
+    for ax, split in zip(axes, ("train", "test")):
+        values = counts[split].sort_values().to_numpy()
+        ax.bar(range(len(values)), values, width=1.0)
+        ax.axhline(values.mean(), color="red", linestyle="--", label=f"mean = {values.mean():.1f}")
+        ax.set_title(f"Images per class ({split}, sorted)")
+        ax.set_xlabel("class (sorted by count)")
+        ax.set_ylabel("images")
+        ax.legend()
+    save_fig(fig, ctx.fig_dir / "02_class_distribution.png")
+
+    fig, ax = plt.subplots(figsize=(8, 5))
+    # Ranked by train + test: train is nearly flat, so the classes that are really small show up in test
+    smallest = counts.loc[(counts["train"] + counts["test"]).nsmallest(15).index]
+    ax.barh(smallest.index, smallest["train"], label="train")
+    ax.barh(smallest.index, smallest["test"], left=smallest["train"], label="test", alpha=0.6)
+    ax.set_title("15 smallest classes (train + test images)")
+    ax.set_xlabel("images")
+    ax.legend()
+    save_fig(fig, ctx.fig_dir / "02_smallest_classes.png")
+
+    info = {"num_classes": int(len(counts))}
+    for split in ("train", "test"):
+        c = counts[split]
+        info[split] = {
+            "min": int(c.min()), "max": int(c.max()), "mean": round(float(c.mean()), 2),
+            "std": round(float(c.std()), 2),
+            "imbalance_ratio_max_over_min": round(float(c.max() / max(c.min(), 1)), 2),
+            "classes_with_zero_images": counts.index[c == 0].tolist(),
+        }
+    # How many validation images per class would a stratified split leave?
+    min_train = int(counts["train"].min())
+    info["val_images_per_class_for_smallest_class"] = {
+        str(frac): int(np.floor(min_train * frac)) for frac in (0.1, 0.15, 0.2)
+    }
+    ctx.summary["classes"] = info
+
+
+# --------------------------------------------------------------------------
 # Entry point
 # --------------------------------------------------------------------------
 STEPS = {
     "inspect": step_inspect,
+    "classes": step_classes,
 }
 
 
