@@ -142,6 +142,7 @@ def show_image_grid(ctx: EDAContext, items, path: Path, title: str, ncols: int =
     """items: list of (split, idx, caption). Draws the images in a grid with captions."""
     items = list(items)[:16]
     if not items:
+        path.unlink(missing_ok=True)  # don't leave a grid from an earlier run that no longer applies
         return
     nrows = int(np.ceil(len(items) / ncols))
     fig, axes = plt.subplots(nrows, ncols, figsize=(3.2 * ncols, 3.4 * nrows), squeeze=False)
