@@ -188,6 +188,37 @@ def load_splits(sample: int | None = None, seed: int = 42, cache_dir: str | None
     return train, test
 
 
+OFFICIAL_ARCHIVE_URL = "https://data.caltech.edu/records/65de6-vp158/files/CUB_200_2011.tgz?download=1"
+OFFICIAL_TEXT_FILES = ("images", "train_test_split", "image_class_labels", "classes", "bounding_boxes")
+
+
+def fetch_official_metadata(meta_dir: Path):
+    """Download the official CUB text files (not the images) into meta_dir.
+
+    They sit after the images inside the 1.1 GB archive, so the whole archive is streamed
+    once, but only the small text files are written to disk.
+    """
+    import tarfile
+    import urllib.request
+
+    meta_dir = Path(meta_dir)
+    meta_dir.mkdir(parents=True, exist_ok=True)
+    wanted = {f"CUB_200_2011/{name}.txt" for name in OFFICIAL_TEXT_FILES}
+    # data.caltech.edu answers 403 to Python's default User-Agent
+    request = urllib.request.Request(OFFICIAL_ARCHIVE_URL, headers={"User-Agent": "curl/8.0"})
+    print(f"  streaming {OFFICIAL_ARCHIVE_URL} (about 1.1 GB, a few minutes)")
+    with urllib.request.urlopen(request) as response, tarfile.open(fileobj=response, mode="r|gz") as tar:
+        for member in tar:
+            if member.name in wanted and member.isfile():
+                (meta_dir / Path(member.name).name).write_bytes(tar.extractfile(member).read())
+                wanted.discard(member.name)
+                print(f"  saved {meta_dir / Path(member.name).name}")
+                if not wanted:
+                    break
+    if wanted:
+        raise RuntimeError(f"files not found in the archive: {sorted(wanted)}")
+
+
 def load_official_metadata(meta_dir: Path | None) -> pd.DataFrame | None:
     """Official CUB split, class and bird bounding box per file name, or None if not downloaded.
 
@@ -195,8 +226,7 @@ def load_official_metadata(meta_dir: Path | None) -> pd.DataFrame | None:
     CUB_200_2011.tgz (images.txt, train_test_split.txt, image_class_labels.txt, classes.txt,
     bounding_boxes.txt). Boxes are x, y, width, height in original pixels.
     """
-    names = ("images", "train_test_split", "image_class_labels", "classes", "bounding_boxes")
-    if meta_dir is None or not all((Path(meta_dir) / f"{n}.txt").exists() for n in names):
+    if meta_dir is None or not all((Path(meta_dir) / f"{n}.txt").exists() for n in OFFICIAL_TEXT_FILES):
         return None
 
     def read(name, cols):
@@ -978,11 +1008,15 @@ def main(argv=None):
     parser.add_argument("--dup-review", default="configs/eda/near_duplicate_review.csv",
                         help="CSV of by-eye verdicts for near-duplicate pairs")
     parser.add_argument("--cub-meta", default="data/CUB_200_2011",
-                        help="folder with the official CUB text files (optional, see docs)")
+                        help="folder with the official CUB text files (optional)")
+    parser.add_argument("--fetch-cub-meta", action="store_true",
+                        help="download the official CUB text files into --cub-meta if missing")
     parser.add_argument("--recompute", action="store_true", help="ignore the cached image stats")
     parser.add_argument("--cache-dir", default=None, help="Hugging Face cache folder")
     args = parser.parse_args(argv)
 
+    if args.fetch_cub_meta and load_official_metadata(Path(args.cub_meta)) is None:
+        fetch_official_metadata(Path(args.cub_meta))
     train, test = load_splits(args.sample, args.seed, args.cache_dir)
     ctx = EDAContext(train=train, test=test, out=Path(args.out), seed=args.seed, sample=args.sample,
                      recompute=args.recompute, near_dup_threshold=args.near_dup_threshold,
