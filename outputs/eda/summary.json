@@ -104,7 +104,7 @@
     "n_shorter_side_below_224": 148,
     "n_grayscale": {
       "test": 4,
-      "train": 6
+      "train": 5
     },
     "brightness": {
       "min": 0.082,

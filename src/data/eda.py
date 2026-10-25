@@ -35,9 +35,10 @@ from PIL import Image  # noqa: E402
 TRAIN_REPO = "Multimodal-Fatima/CUB_train"
 TEST_REPO = "Multimodal-Fatima/CUB_test"
 STATS_SIZE = 256  # pixel statistics are computed on images resized to 256x256
-# mean |R-G|,|G-B| below this (0-255 scale) = effectively grayscale. 2.0 flagged color birds on
-# large gray sky/water; on CUB the gray RGB files score <= 0.05 and the next image 0.21
-GRAY_CHANNEL_DIFF = 0.1
+# Largest per-pixel max-min channel spread (0-255) below this = no color anywhere = grayscale.
+# A mean over the image fails both ways: color birds on big gray sky/water score low, and a
+# black-and-white photo with one colored eye scores lower than a fully gray one
+GRAY_MAX_CHROMA = 10
 IMAGENET_MEAN = [0.485, 0.456, 0.406]
 IMAGENET_STD = [0.229, 0.224, 0.225]
 
@@ -343,7 +344,7 @@ def pixel_stats(img: Image.Image) -> dict:
         "contrast": float(gray.std()),
         "blur_lap_var": float(lap.var()),
         "colorfulness": float(colorfulness),
-        "channel_diff": float((np.abs(R - G).mean() + np.abs(G - B).mean()) / 2),
+        "max_chroma": float((arr.max(axis=2) - arr.min(axis=2)).max() * 255.0),
         "dhash": dhash(img),
     }
 
@@ -388,7 +389,7 @@ def load_or_compute_image_stats(ctx: EDAContext) -> pd.DataFrame:
     df["aspect_ratio"] = df["width"] / df["height"]
     df["shorter_side"] = df[["width", "height"]].min(axis=1)
     df["is_grayscale"] = df["mode"].isin(["L", "LA", "1", "I", "I;16", "F"]) | (
-        df["channel_diff"] < GRAY_CHANNEL_DIFF
+        df["max_chroma"] < GRAY_MAX_CHROMA
     )
     return df
 
@@ -445,11 +446,11 @@ def step_images(ctx: EDAContext):
     grid(ok.nsmallest(8, "brightness"), "darkest", "Darkest images", "brightness")
     grid(ok.nsmallest(8, "shorter_side"), "smallest", "Smallest images", "shorter_side")
     # Borderline cases first: they are the likely false positives (true L-mode images score 0)
-    grid(ok[ok.is_grayscale].sort_values("channel_diff", ascending=False), "grayscale",
-         "Images flagged as grayscale", "channel_diff")
+    grid(ok[ok.is_grayscale].sort_values("max_chroma", ascending=False), "grayscale",
+         "Images flagged as grayscale", "max_chroma")
 
     gray = df[df.is_grayscale]
-    gray[["split", "idx", "file_name", "label_name", "mode", "channel_diff"]].to_csv(
+    gray[["split", "idx", "file_name", "label_name", "mode", "max_chroma"]].to_csv(
         ctx.table_dir / "grayscale_images.csv", index=False
     )
     not_rgb = df[df["mode"].notna() & (df["mode"] != "RGB")]

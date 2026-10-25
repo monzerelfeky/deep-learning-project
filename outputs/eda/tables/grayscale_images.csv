@@ -1,9 +1,8 @@
-split,idx,file_name,label_name,mode,channel_diff
+split,idx,file_name,label_name,mode,max_chroma
 train,726,Pelagic_Cormorant_0022_23802.jpg,Pelagic Cormorant,L,0.0
-train,1743,California_Gull_0012_41272.jpg,California Gull,RGB,0.04695892333984375
+train,1743,California_Gull_0012_41272.jpg,California Gull,RGB,3.999999761581421
 train,1868,Ivory_Gull_0040_49180.jpg,Ivory Gull,L,0.0
 train,1950,Western_Gull_0002_54825.jpg,Western Gull,L,0.0
-train,2720,Mockingbird_0085_81417.jpg,Mockingbird,RGB,0.02100372314453125
 train,2764,Clark_Nutcracker_0020_85099.jpg,Clark Nutcracker,L,0.0
 test,193,Brewer_Blackbird_0028_2682.jpg,Brewer Blackbird,L,0.0
 test,1764,Ivory_Gull_0085_49456.jpg,Ivory Gull,L,0.0
