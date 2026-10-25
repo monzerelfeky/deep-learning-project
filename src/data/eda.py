@@ -21,6 +21,7 @@ import json
 import random
 import re
 import textwrap
+from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -42,6 +43,16 @@ GRAY_MAX_CHROMA = 10
 NEAR_DUP_THRESHOLDS_COMPARED = (2, 4, 6)  # dHash bit distances reported side by side
 IMAGENET_MEAN = [0.485, 0.456, 0.406]
 IMAGENET_STD = [0.229, 0.224, 0.225]
+
+STOPWORDS = {
+    "a", "an", "the", "and", "with", "has", "is", "of", "this", "bird", "its", "on",
+    "in", "that", "it", "are", "to", "as", "at", "for", "very", "while", "which", "but",
+}
+COLOR_WORDS = {
+    "black", "white", "gray", "grey", "brown", "red", "orange", "yellow", "green",
+    "blue", "purple", "pink", "tan", "buff", "olive", "rufous", "chestnut", "crimson",
+    "scarlet", "golden", "gold", "rust", "cream", "beige", "iridescent",
+}
 
 
 # --------------------------------------------------------------------------
@@ -606,6 +617,154 @@ def step_quality(ctx: EDAContext):
 
 
 # --------------------------------------------------------------------------
+# Section 5 - captions
+# --------------------------------------------------------------------------
+def clean_caption(text: str) -> str:
+    """Proposed cleaning rule (Member 2 implements the final version in the pipeline)."""
+    text = text.lower()
+    text = re.sub(r"[’']", "", text)  # bird's -> birds
+    text = re.sub(r"[^a-z0-9 ]+", " ", text)  # punctuation and other symbols -> space
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def edits1(word: str) -> set[str]:
+    """Every string one delete / swap / replace / insert away from word (Norvig's speller)."""
+    letters = "abcdefghijklmnopqrstuvwxyz"
+    splits = [(word[:i], word[i:]) for i in range(len(word) + 1)]
+    deletes = [a + b[1:] for a, b in splits if b]
+    swaps = [a + b[1] + b[0] + b[2:] for a, b in splits if len(b) > 1]
+    replaces = [a + c + b[1:] for a, b in splits if b for c in letters]
+    inserts = [a + c + b for a, b in splits for c in letters]
+    return set(deletes + swaps + replaces + inserts)
+
+
+def build_caption_frames(ctx: EDAContext):
+    """Returns (one row per caption, one row per image)."""
+    caption_rows, image_rows = [], []
+    for r in ctx.metadata.itertuples():
+        desc = r.description if isinstance(r.description, str) else ""
+        lines = desc.split("\n")
+        captions = [line.strip() for line in lines if line.strip()]
+        image_rows.append({"split": r.split, "idx": r.idx, "n_captions": len(captions),
+                           "n_empty_lines": len(lines) - len(captions)})
+        for j, raw in enumerate(captions):
+            cleaned = clean_caption(raw)
+            caption_rows.append({
+                "split": r.split, "idx": r.idx, "label_name": r.label_name, "caption_no": j,
+                "raw": raw, "clean": cleaned,
+                "n_words_raw": len(raw.split()), "n_tokens": len(cleaned.split()),
+            })
+    return pd.DataFrame(caption_rows), pd.DataFrame(image_rows)
+
+
+def step_captions(ctx: EDAContext):
+    caps, per_image = ctx.captions
+    train_caps = caps[caps.split == "train"]
+    info = {}
+
+    # 1) Captions per image
+    info["captions_per_image"] = per_image.n_captions.value_counts().sort_index().to_dict()
+    info["images_without_10_captions"] = int((per_image.n_captions != 10).sum())
+    info["empty_lines_total"] = int(per_image.n_empty_lines.sum())
+    per_image[per_image.n_captions != 10].to_csv(ctx.table_dir / "images_without_10_captions.csv", index=False)
+
+    # 2) Lengths -> decides the decoder's max_len
+    lengths = train_caps.n_tokens
+    pct = {f"p{p}": int(np.percentile(lengths, p)) for p in (50, 90, 95, 99)}
+    info["tokens_per_caption_train"] = {"min": int(lengths.min()), **pct, "max": int(lengths.max())}
+    fig, ax = plt.subplots(figsize=(8, 4))
+    ax.hist(lengths, bins=range(0, int(lengths.max()) + 2), alpha=0.8)
+    ax.axvline(pct["p95"], color="red", linestyle="--", label=f"95th percentile = {pct['p95']}")
+    ax.set(title="Caption length (train, tokens after cleaning)", xlabel="tokens", ylabel="captions")
+    ax.legend()
+    save_fig(fig, ctx.fig_dir / "05_caption_lengths.png")
+    caps[caps.n_tokens <= 3].to_csv(ctx.table_dir / "very_short_captions.csv", index=False)
+    caps[caps.n_tokens > pct["p99"]].to_csv(ctx.table_dir / "very_long_captions.csv", index=False)
+    info["very_short_captions_le3_tokens"] = int((caps.n_tokens <= 3).sum())
+
+    # 3) Vocabulary, built from TRAIN only. min_freq is chosen without touching test: words are
+    # counted on 90% of training images and <unk> is measured on the other 10%, split by image
+    # because the 10 captions of one image are near-paraphrases
+    train_counts = Counter(tok for c in train_caps.clean for tok in c.split())
+    images = sorted(train_caps.idx.unique())
+    held_out = set(random.Random(ctx.seed).sample(images, k=max(1, len(images) // 10)))
+    is_held = train_caps.idx.isin(held_out)
+    fit_counts = Counter(tok for c in train_caps.clean[~is_held] for tok in c.split())
+    held_tokens = [tok for c in train_caps.clean[is_held] for tok in c.split()]
+    total_train = sum(train_counts.values())
+    vocab_rows = []
+    for k in (1, 2, 3, 5, 10, 20):
+        kept = {w for w, n in train_counts.items() if n >= k}
+        fit_kept = {w for w, n in fit_counts.items() if n >= k}
+        vocab_rows.append({
+            "min_freq": k, "vocab_size": len(kept),
+            "train_token_coverage_%": round(100 * sum(train_counts[w] for w in kept) / total_train, 3),
+            "heldout_unk_token_rate_%": round(
+                100 * sum(t not in fit_kept for t in held_tokens) / max(len(held_tokens), 1), 3),
+        })
+    vocab_df = pd.DataFrame(vocab_rows)
+    vocab_df.to_csv(ctx.table_dir / "vocab_by_min_freq.csv", index=False)
+    info["vocab_by_min_freq"] = vocab_rows
+    pd.DataFrame(train_counts.most_common(), columns=["word", "count"]).to_csv(
+        ctx.table_dir / "word_frequencies_train.csv", index=False
+    )
+
+    fig, axes = plt.subplots(1, 2, figsize=(14, 4))
+    axes[0].plot(vocab_df.min_freq, vocab_df.vocab_size, marker="o")
+    axes[0].set(title="Vocabulary size vs. min frequency", xlabel="min_freq", ylabel="words kept")
+    axes[1].plot(vocab_df.min_freq, vocab_df["heldout_unk_token_rate_%"], marker="o", color="orange")
+    axes[1].set(title="Held-out train tokens that become <unk>", xlabel="min_freq", ylabel="% of tokens")
+    save_fig(fig, ctx.fig_dir / "05_vocab_threshold.png")
+
+    top = [(w, n) for w, n in train_counts.most_common() if w not in STOPWORDS][:30]
+    fig, ax = plt.subplots(figsize=(8, 7))
+    ax.barh([w for w, _ in top][::-1], [n for _, n in top][::-1])
+    ax.set(title="30 most frequent words (train, stopwords removed)", xlabel="count")
+    save_fig(fig, ctx.fig_dir / "05_top_words.png")
+
+    # 4) Typo candidates: rare words one edit away from a frequent word ("brwon" -> "brown")
+    frequent = {w for w, n in train_counts.items() if n >= 50}
+    rare = [w for w, n in train_counts.items() if n <= 2 and len(w) >= 3]
+    typos = []
+    for w in rare:
+        matches = edits1(w) & frequent
+        if matches:
+            best = max(matches, key=train_counts.get)
+            typos.append({"rare_word": w, "count": train_counts[w], "probably_meant": best,
+                          "count_of_match": train_counts[best]})
+    pd.DataFrame(typos).to_csv(ctx.table_dir / "typo_candidates.csv", index=False)
+    info["words_seen_once_train"] = int(sum(1 for n in train_counts.values() if n == 1))
+    info["typo_candidates"] = len(typos)
+
+    # 5) Duplicates and odd characters
+    info["duplicate_captions_within_same_image"] = int(caps.duplicated(["split", "idx", "clean"]).sum())
+    repeated = train_caps.clean.value_counts()
+    repeated[repeated > 1].head(50).to_csv(ctx.table_dir / "most_repeated_captions_train.csv")
+    info["distinct_train_captions_used_more_than_once"] = int((repeated > 1).sum())
+    non_ascii = caps[caps.raw.map(lambda s: any(ord(ch) > 127 for ch in s))]
+    non_ascii.to_csv(ctx.table_dir / "non_ascii_captions.csv", index=False)
+    info["captions_with_non_ascii"] = int(len(non_ascii))
+    removed_chars = Counter(ch for s in caps.raw for ch in s.lower() if not re.match(r"[a-z0-9 ]", ch))
+    info["characters_removed_by_cleaning"] = dict(removed_chars.most_common(20))
+
+    # 6) Evidence for augmentation choices
+    tokens = caps.clean.str.split()
+    info["%_captions_mentioning_left_or_right"] = round(
+        100 * tokens.map(lambda t: "left" in t or "right" in t).mean(), 3)
+    info["%_captions_with_a_color_word"] = round(
+        100 * tokens.map(lambda t: bool(COLOR_WORDS & set(t))).mean(), 2)
+    color_counts = Counter(t for toks in tokens for t in toks if t in COLOR_WORDS)
+    fig, ax = plt.subplots(figsize=(8, 4))
+    words, counts = zip(*color_counts.most_common(15)) if color_counts else ((), ())
+    ax.bar(words, counts)
+    ax.set(title="Color words in captions", ylabel="occurrences")
+    ax.tick_params(axis="x", rotation=45)
+    save_fig(fig, ctx.fig_dir / "05_color_words.png")
+
+    ctx.summary["captions"] = info
+
+
+# --------------------------------------------------------------------------
 # Entry point
 # --------------------------------------------------------------------------
 STEPS = {
@@ -613,6 +772,7 @@ STEPS = {
     "classes": step_classes,
     "images": step_images,
     "quality": step_quality,
+    "captions": step_captions,
 }
 
 

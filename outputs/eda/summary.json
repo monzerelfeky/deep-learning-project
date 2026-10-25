@@ -186,5 +186,86 @@
       "false_positive": 3
     },
     "train_images_to_drop_for_leakage": 3
+  },
+  "captions": {
+    "captions_per_image": {
+      "10": 11788
+    },
+    "images_without_10_captions": 0,
+    "empty_lines_total": 11788,
+    "tokens_per_caption_train": {
+      "min": 1,
+      "p50": 14,
+      "p90": 21,
+      "p95": 24,
+      "p99": 32,
+      "max": 66
+    },
+    "very_short_captions_le3_tokens": 3,
+    "vocab_by_min_freq": [
+      {
+        "min_freq": 1,
+        "vocab_size": 4061,
+        "train_token_coverage_%": 100.0,
+        "heldout_unk_token_rate_%": 0.22
+      },
+      {
+        "min_freq": 2,
+        "vocab_size": 2205,
+        "train_token_coverage_%": 99.797,
+        "heldout_unk_token_rate_%": 0.358
+      },
+      {
+        "min_freq": 3,
+        "vocab_size": 1636,
+        "train_token_coverage_%": 99.673,
+        "heldout_unk_token_rate_%": 0.442
+      },
+      {
+        "min_freq": 5,
+        "vocab_size": 1241,
+        "train_token_coverage_%": 99.525,
+        "heldout_unk_token_rate_%": 0.577
+      },
+      {
+        "min_freq": 10,
+        "vocab_size": 877,
+        "train_token_coverage_%": 99.259,
+        "heldout_unk_token_rate_%": 0.829
+      },
+      {
+        "min_freq": 20,
+        "vocab_size": 617,
+        "train_token_coverage_%": 98.876,
+        "heldout_unk_token_rate_%": 1.271
+      }
+    ],
+    "words_seen_once_train": 1856,
+    "typo_candidates": 744,
+    "duplicate_captions_within_same_image": 1312,
+    "distinct_train_captions_used_more_than_once": 1606,
+    "captions_with_non_ascii": 56,
+    "characters_removed_by_cleaning": {
+      ",": 103343,
+      ".": 93071,
+      "-": 3769,
+      "'": 3297,
+      "\ufffd": 1700,
+      "/": 531,
+      ";": 460,
+      "&": 368,
+      "\"": 92,
+      "(": 44,
+      ")": 44,
+      ":": 28,
+      "!": 11,
+      "?": 6,
+      "`": 5,
+      "=": 2,
+      "%": 1,
+      "\\": 1
+    },
+    "%_captions_mentioning_left_or_right": 0.043,
+    "%_captions_with_a_color_word": 97.62
   }
 }
