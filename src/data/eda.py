@@ -786,8 +786,8 @@ def step_captions(ctx: EDAContext):
     removed_chars = Counter(ch for s in caps.raw for ch in s.lower() if not re.match(r"[a-z0-9 ]", ch))
     info["characters_removed_by_cleaning"] = dict(removed_chars.most_common(20))
 
-    # 6) Evidence for augmentation choices
-    tokens = caps.clean.str.split()
+    # 6) Evidence for augmentation choices (train only, like every other training decision)
+    tokens = train_caps.clean.str.split()
     info["%_captions_mentioning_left_or_right"] = round(
         100 * tokens.map(lambda t: "left" in t or "right" in t).mean(), 3)
     info["%_captions_with_a_color_word"] = round(
@@ -796,7 +796,7 @@ def step_captions(ctx: EDAContext):
     fig, ax = plt.subplots(figsize=(8, 4))
     words, counts = zip(*color_counts.most_common(15)) if color_counts else ((), ())
     ax.bar(words, counts)
-    ax.set(title="Color words in captions", ylabel="occurrences")
+    ax.set(title="Color words in captions (train)", ylabel="occurrences")
     ax.tick_params(axis="x", rotation=45)
     save_fig(fig, ctx.fig_dir / "05_color_words.png")
 

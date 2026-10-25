@@ -270,8 +270,8 @@
       "%": 1,
       "\\": 1
     },
-    "%_captions_mentioning_left_or_right": 0.043,
-    "%_captions_with_a_color_word": 97.62
+    "%_captions_mentioning_left_or_right": 0.038,
+    "%_captions_with_a_color_word": 97.61
   },
   "augment": {
     "n_train_images_with_box": 5994,
