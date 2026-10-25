@@ -15,6 +15,8 @@ result is cached in <out>/tables/image_stats*.csv. Use --recompute to redo it.
 from __future__ import annotations
 
 import argparse
+import hashlib
+import io
 import json
 import random
 import re
@@ -28,9 +30,16 @@ matplotlib.use("Agg")  # save figures without needing a display
 import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
+from PIL import Image  # noqa: E402
 
 TRAIN_REPO = "Multimodal-Fatima/CUB_train"
 TEST_REPO = "Multimodal-Fatima/CUB_test"
+STATS_SIZE = 256  # pixel statistics are computed on images resized to 256x256
+# mean |R-G|,|G-B| below this (0-255 scale) = effectively grayscale. 2.0 flagged color birds on
+# large gray sky/water; on CUB the gray RGB files score <= 0.05 and the next image 0.21
+GRAY_CHANNEL_DIFF = 0.1
+IMAGENET_MEAN = [0.485, 0.456, 0.406]
+IMAGENET_STD = [0.229, 0.224, 0.225]
 
 
 # --------------------------------------------------------------------------
@@ -285,11 +294,193 @@ def step_classes(ctx: EDAContext):
 
 
 # --------------------------------------------------------------------------
+# Section 3 - per-image statistics (one pass over every image) and plots
+# --------------------------------------------------------------------------
+def iter_raw_images(ds):
+    """Yield (index, record, raw_bytes) without letting the datasets library decode.
+
+    Decoding ourselves means one corrupted file is recorded instead of crashing
+    the loop, and the raw bytes can be hashed to find exact duplicates.
+    """
+    from datasets import Image as HFImage
+
+    raw = ds.cast_column("image", HFImage(decode=False))
+    for i, record in enumerate(raw):
+        info = record["image"] or {}
+        data = info.get("bytes")
+        if data is None and info.get("path"):
+            data = Path(info["path"]).read_bytes()
+        yield i, record, data
+
+
+def dhash(img: Image.Image) -> str:
+    """64-bit difference hash: similar images get hashes that differ in few bits."""
+    small = np.asarray(img.convert("L").resize((9, 8), Image.LANCZOS), dtype=np.int16)
+    bits = (small[:, 1:] > small[:, :-1]).flatten()
+    return np.packbits(bits).tobytes().hex()
+
+
+def pixel_stats(img: Image.Image) -> dict:
+    rgb = img.convert("RGB").resize((STATS_SIZE, STATS_SIZE), Image.BILINEAR)
+    arr = np.asarray(rgb, dtype=np.float32) / 255.0
+    r, g, b = arr[..., 0], arr[..., 1], arr[..., 2]
+    gray = 0.299 * r + 0.587 * g + 0.114 * b
+
+    g255 = gray * 255.0  # Laplacian variance: low = few sharp edges = blurry
+    lap = (-4 * g255[1:-1, 1:-1] + g255[:-2, 1:-1] + g255[2:, 1:-1]
+           + g255[1:-1, :-2] + g255[1:-1, 2:])
+
+    R, G, B = r * 255.0, g * 255.0, b * 255.0  # colorfulness (Hasler & Suesstrunk, 2003)
+    rg, yb = R - G, 0.5 * (R + G) - B
+    colorfulness = np.hypot(rg.std(), yb.std()) + 0.3 * np.hypot(rg.mean(), yb.mean())
+
+    return {
+        "mean_r": float(r.mean()), "mean_g": float(g.mean()), "mean_b": float(b.mean()),
+        # mean of squares lets us compute the exact dataset std later
+        "msq_r": float((r ** 2).mean()), "msq_g": float((g ** 2).mean()), "msq_b": float((b ** 2).mean()),
+        "brightness": float(gray.mean()),
+        "contrast": float(gray.std()),
+        "blur_lap_var": float(lap.var()),
+        "colorfulness": float(colorfulness),
+        "channel_diff": float((np.abs(R - G).mean() + np.abs(G - B).mean()) / 2),
+        "dhash": dhash(img),
+    }
+
+
+def compute_image_stats(ds, split: str) -> pd.DataFrame:
+    names = label_names(ds)
+    rows = []
+    for i, record, data in iter_raw_images(ds):
+        label = record.get("label")
+        row = {
+            "split": split, "idx": i, "file_name": record.get("file_name"),
+            "label_name": names[label] if names is not None and label is not None else label,
+            "error": "",
+        }
+        try:
+            if data is None:
+                raise ValueError("no image bytes")
+            row["md5"] = hashlib.md5(data).hexdigest()
+            img = Image.open(io.BytesIO(data))
+            row.update(format=img.format, mode=img.mode, width=img.size[0], height=img.size[1])
+            img.load()  # forces a full decode; truncated files fail here
+            row.update(pixel_stats(img))
+        except Exception as exc:
+            row["error"] = f"{type(exc).__name__}: {exc}"
+        rows.append(row)
+        if (i + 1) % 1000 == 0:
+            print(f"  {split}: {i + 1}/{len(ds)} images processed")
+    return pd.DataFrame(rows)
+
+
+def load_or_compute_image_stats(ctx: EDAContext) -> pd.DataFrame:
+    suffix = f"_sample{ctx.sample}" if ctx.sample else ""
+    cache = ctx.table_dir / f"image_stats{suffix}.csv"
+    if cache.exists() and not ctx.recompute:
+        print(f"  using cached {cache}")
+        df = pd.read_csv(cache, dtype={"md5": str, "dhash": str, "error": str})
+    else:
+        df = pd.concat([compute_image_stats(ctx.train, "train"),
+                        compute_image_stats(ctx.test, "test")], ignore_index=True)
+        df.to_csv(cache, index=False)
+    df["error"] = df["error"].fillna("")
+    df["aspect_ratio"] = df["width"] / df["height"]
+    df["shorter_side"] = df[["width", "height"]].min(axis=1)
+    df["is_grayscale"] = df["mode"].isin(["L", "LA", "1", "I", "I;16", "F"]) | (
+        df["channel_diff"] < GRAY_CHANNEL_DIFF
+    )
+    return df
+
+
+def step_images(ctx: EDAContext):
+    df = ctx.image_df
+    ok = df[df.error == ""]
+
+    # Sizes
+    fig, axes = plt.subplots(1, 3, figsize=(15, 4))
+    for split, part in ok.groupby("split"):
+        axes[0].scatter(part.width, part.height, s=4, alpha=0.4, label=split)
+        axes[1].hist(part.aspect_ratio, bins=50, alpha=0.6, label=split)
+        axes[2].hist(part.shorter_side, bins=50, alpha=0.6, label=split)
+    axes[0].set(title="Width vs height", xlabel="width (px)", ylabel="height (px)")
+    axes[1].set(title="Aspect ratio (width / height)", xlabel="ratio", ylabel="images")
+    axes[2].axvline(224, color="red", linestyle="--", label="224 px")
+    axes[2].set(title="Shorter side", xlabel="pixels", ylabel="images")
+    for ax in axes:
+        ax.legend()
+    save_fig(fig, ctx.fig_dir / "03_image_sizes.png")
+
+    # Brightness, contrast, sharpness, colorfulness, channel means
+    fig, axes = plt.subplots(2, 3, figsize=(15, 8))
+    panels = [
+        ("brightness", "Brightness (0-1)", False), ("contrast", "Contrast (gray std)", False),
+        ("blur_lap_var", "Sharpness: Laplacian variance (log scale)", True),
+        ("colorfulness", "Colorfulness (0 = gray)", False),
+    ]
+    for ax, (col, title, log) in zip(axes.flat, panels):
+        for split, part in ok.groupby("split"):
+            values = np.log10(part[col] + 1) if log else part[col]
+            ax.hist(values, bins=50, alpha=0.6, label=split)
+        ax.set(title=title, ylabel="images")
+        ax.legend()
+    train_ok = ok[ok.split == "train"]
+    for col, color in (("mean_r", "red"), ("mean_g", "green"), ("mean_b", "blue")):
+        axes.flat[4].hist(train_ok[col], bins=50, alpha=0.5, color=color, label=col)
+    axes.flat[4].set(title="Per-image channel means (train)", ylabel="images")
+    axes.flat[4].legend()
+    modes = df.groupby(["split", "mode"]).size().unstack(fill_value=0)
+    modes.T.plot.bar(ax=axes.flat[5])
+    axes.flat[5].set(title="Image modes", ylabel="images")
+    save_fig(fig, ctx.fig_dir / "03_image_quality.png")
+
+    # Example grids so every automatic flag is checked by eye
+    def grid(part, name, title, caption_col):
+        items = [(r.split, r.idx, f"{r.label_name}\n{caption_col}={getattr(r, caption_col):.2f}")
+                 for r in part.itertuples()]
+        show_image_grid(ctx, items, ctx.fig_dir / f"03_examples_{name}.png", title)
+
+    grid(ok.nsmallest(12, "colorfulness"), "least_colorful", "Least colorful images", "colorfulness")
+    grid(ok.nsmallest(12, "blur_lap_var"), "blurriest", "Blurriest images", "blur_lap_var")
+    grid(ok.nsmallest(8, "brightness"), "darkest", "Darkest images", "brightness")
+    grid(ok.nsmallest(8, "shorter_side"), "smallest", "Smallest images", "shorter_side")
+    # Borderline cases first: they are the likely false positives (true L-mode images score 0)
+    grid(ok[ok.is_grayscale].sort_values("channel_diff", ascending=False), "grayscale",
+         "Images flagged as grayscale", "channel_diff")
+
+    gray = df[df.is_grayscale]
+    gray[["split", "idx", "file_name", "label_name", "mode", "channel_diff"]].to_csv(
+        ctx.table_dir / "grayscale_images.csv", index=False
+    )
+    not_rgb = df[df["mode"].notna() & (df["mode"] != "RGB")]
+    not_rgb[["split", "idx", "file_name", "mode"]].to_csv(ctx.table_dir / "non_rgb_images.csv", index=False)
+
+    # Normalisation statistics from the TRAINING split only (test must stay unseen)
+    mean = [train_ok[f"mean_{c}"].mean() for c in "rgb"]
+    std = [float(np.sqrt(train_ok[f"msq_{c}"].mean() - m ** 2)) for c, m in zip("rgb", mean)]
+
+    ctx.summary["images"] = {
+        "n_images": int(len(df)),
+        "n_decode_errors": int((df.error != "").sum()),
+        "modes": {split: part["mode"].value_counts().to_dict() for split, part in df.groupby("split")},
+        "formats": df["format"].value_counts().to_dict(),
+        "width": describe(ok.width), "height": describe(ok.height),
+        "shorter_side": describe(ok.shorter_side), "aspect_ratio": describe(ok.aspect_ratio),
+        "n_shorter_side_below_224": int((ok.shorter_side < 224).sum()),
+        "n_grayscale": {split: int(part.is_grayscale.sum()) for split, part in df.groupby("split")},
+        "brightness": describe(ok.brightness), "contrast": describe(ok.contrast),
+        "blur_lap_var": describe(ok.blur_lap_var), "colorfulness": describe(ok.colorfulness),
+        "normalization_train": {"mean": [round(m, 4) for m in mean], "std": [round(s, 4) for s in std]},
+        "normalization_imagenet": {"mean": IMAGENET_MEAN, "std": IMAGENET_STD},
+    }
+
+
+# --------------------------------------------------------------------------
 # Entry point
 # --------------------------------------------------------------------------
 STEPS = {
     "inspect": step_inspect,
     "classes": step_classes,
+    "images": step_images,
 }
 
 
