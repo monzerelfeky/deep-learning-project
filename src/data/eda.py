@@ -39,6 +39,7 @@ STATS_SIZE = 256  # pixel statistics are computed on images resized to 256x256
 # A mean over the image fails both ways: color birds on big gray sky/water score low, and a
 # black-and-white photo with one colored eye scores lower than a fully gray one
 GRAY_MAX_CHROMA = 10
+NEAR_DUP_THRESHOLDS_COMPARED = (2, 4, 6)  # dHash bit distances reported side by side
 IMAGENET_MEAN = [0.485, 0.456, 0.406]
 IMAGENET_STD = [0.229, 0.224, 0.225]
 
@@ -56,7 +57,7 @@ class EDAContext:
     seed: int = 42
     sample: int | None = None
     recompute: bool = False
-    near_dup_threshold: int = 4
+    near_dup_threshold: int = 6  # 4 misses a real train/test duplicate on CUB (Marsh Wren, d=6)
     summary: dict = field(default_factory=dict)
     _metadata: pd.DataFrame | None = None
     _image_df: pd.DataFrame | None = None
@@ -477,12 +478,107 @@ def step_images(ctx: EDAContext):
 
 
 # --------------------------------------------------------------------------
+# Section 4 - data quality: corrupted files, missing values, duplicates
+# --------------------------------------------------------------------------
+def near_duplicate_pairs(hashes: list[str], threshold: int, chunk: int = 1024):
+    """All pairs (i, j, distance) whose dHashes differ in <= threshold bits."""
+    bits = np.array([np.unpackbits(np.frombuffer(bytes.fromhex(h), dtype=np.uint8)) for h in hashes],
+                    dtype=np.float32)
+    ones = bits.sum(axis=1)
+    pairs = []
+    for start in range(0, len(bits), chunk):
+        block = bits[start:start + chunk]
+        # Hamming distance = |a| + |b| - 2 * (a . b) for 0/1 vectors
+        dist = ones[start:start + chunk, None] + ones[None, :] - 2 * (block @ bits.T)
+        rows, cols = np.nonzero(dist <= threshold)
+        for r, c in zip(rows, cols):
+            i = r + start
+            if i < c:
+                pairs.append((i, int(c), int(round(dist[r, c]))))
+    return pairs
+
+
+def step_quality(ctx: EDAContext):
+    df, meta = ctx.image_df, ctx.metadata
+    info = {}
+
+    errors = df[df.error != ""]
+    errors[["split", "idx", "file_name", "error"]].to_csv(ctx.table_dir / "decode_errors.csv", index=False)
+    info["n_decode_errors"] = int(len(errors))
+
+    missing = {}
+    for col in ("label", "file_name", "description"):
+        if col in meta:
+            empty = meta[col].isna() | (meta[col].astype(str).str.strip() == "")
+            missing[col] = int(empty.sum())
+    info["missing_values"] = missing
+
+    # Exact duplicates: identical file bytes
+    hashed = df[df.md5.notna()]
+    groups = hashed.groupby("md5").filter(lambda g: len(g) > 1).sort_values("md5")
+    groups[["md5", "split", "idx", "file_name", "label_name"]].to_csv(
+        ctx.table_dir / "exact_duplicates.csv", index=False
+    )
+    splits_per_group = groups.groupby("md5").split.nunique()
+    info["exact_duplicate_groups"] = int(groups.md5.nunique())
+    info["exact_duplicate_groups_across_train_test"] = int((splits_per_group > 1).sum())
+
+    # Near duplicates: same picture after resizing / recompression / small edits.
+    # Search once at the largest threshold so the compared thresholds come from a single run.
+    valid = df[df.dhash.notna()].reset_index(drop=True)
+    search = max(ctx.near_dup_threshold, *NEAR_DUP_THRESHOLDS_COMPARED)
+    pairs = near_duplicate_pairs(valid.dhash.tolist(), search)
+    rows = []
+    for i, j, d in pairs:
+        a, b = valid.iloc[i], valid.iloc[j]
+        if a.md5 == b.md5:
+            continue  # already counted as an exact duplicate
+        rows.append({
+            "split_a": a.split, "idx_a": a.idx, "file_a": a.file_name, "label_a": a.label_name,
+            "split_b": b.split, "idx_b": b.idx, "file_b": b.file_name, "label_b": b.label_name,
+            "hamming": d, "same_label": a.label_name == b.label_name,
+        })
+    near = pd.DataFrame(rows, columns=["split_a", "idx_a", "file_a", "label_a", "split_b", "idx_b",
+                                       "file_b", "label_b", "hamming", "same_label"])
+    info["near_duplicate_pairs_by_threshold"] = {
+        t: int((near.hamming <= t).sum()) for t in NEAR_DUP_THRESHOLDS_COMPARED
+    }
+    near = near[near.hamming <= ctx.near_dup_threshold]
+    near.sort_values("hamming").to_csv(ctx.table_dir / "near_duplicates.csv", index=False)
+    cross = near[near.split_a != near.split_b]
+    info["near_duplicate_threshold_bits"] = ctx.near_dup_threshold
+    info["near_duplicate_pairs"] = int(len(near))
+    info["near_duplicate_pairs_across_train_test"] = int(len(cross))
+    info["near_duplicate_pairs_with_different_labels"] = int((~near.same_label).sum()) if len(near) else 0
+
+    # Show the closest pairs side by side, train/test (leakage) pairs first:
+    # hashes can give false positives, so look at them
+    fig_path = ctx.fig_dir / "04_near_duplicates.png"
+    fig_path.unlink(missing_ok=True)
+    if len(near):
+        top = (near.assign(cross=near.split_a != near.split_b)
+               .sort_values(["cross", "hamming"], ascending=[False, True]).head(8))
+        fig, axes = plt.subplots(len(top), 2, figsize=(7, 3 * len(top)), squeeze=False)
+        for row_axes, r in zip(axes, top.itertuples()):
+            for ax, split, idx, label in ((row_axes[0], r.split_a, r.idx_a, r.label_a),
+                                          (row_axes[1], r.split_b, r.idx_b, r.label_b)):
+                ax.imshow(ctx.split(split)[int(idx)]["image"].convert("RGB"))
+                ax.set_title(f"{split} #{idx}\n{label}  (d={r.hamming})", fontsize=8)
+                ax.axis("off")
+        fig.suptitle("Closest near-duplicate pairs", y=1.01)
+        save_fig(fig, fig_path)
+
+    ctx.summary["quality"] = info
+
+
+# --------------------------------------------------------------------------
 # Entry point
 # --------------------------------------------------------------------------
 STEPS = {
     "inspect": step_inspect,
     "classes": step_classes,
     "images": step_images,
+    "quality": step_quality,
 }
 
 
@@ -492,7 +588,7 @@ def main(argv=None):
     parser.add_argument("--steps", nargs="+", choices=list(STEPS), default=list(STEPS))
     parser.add_argument("--sample", type=int, default=None, help="use N random images per split")
     parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument("--near-dup-threshold", type=int, default=4, help="max differing dHash bits")
+    parser.add_argument("--near-dup-threshold", type=int, default=6, help="max differing dHash bits")
     parser.add_argument("--recompute", action="store_true", help="ignore the cached image stats")
     parser.add_argument("--cache-dir", default=None, help="Hugging Face cache folder")
     args = parser.parse_args(argv)

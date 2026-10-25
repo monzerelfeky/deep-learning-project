@@ -1,0 +1,13 @@
+split_a,idx_a,file_a,label_a,split_b,idx_b,file_b,label_b,hamming,same_label
+train,46,Laysan_Albatross_0065_809.jpg,Laysan Albatross,train,57,Laysan_Albatross_0096_673.jpg,Laysan Albatross,0,True
+train,774,Bronzed_Cowbird_0074_24045.jpg,Bronzed Cowbird,test,661,Bronzed_Cowbird_0025_796213.jpg,Bronzed Cowbird,0,True
+test,565,Chuck_Will_Widow_0042_796983.jpg,Chuck will Widow,test,2974,Whip_Poor_Will_0002_796427.jpg,Whip poor Will,0,False
+train,5315,Swainson_Warbler_0022_794868.jpg,Swainson Warbler,train,5333,Swainson_Warbler_0049_794880.jpg,Swainson Warbler,0,True
+test,2368,Red_Legged_Kittiwake_0020_795439.jpg,Red legged Kittiwake,test,2374,Red_Legged_Kittiwake_0042_795457.jpg,Red legged Kittiwake,0,True
+train,5277,Prothonotary_Warbler_0020_174122.jpg,Prothonotary Warbler,test,5115,Prothonotary_Warbler_0105_174097.jpg,Prothonotary Warbler,1,True
+test,3264,Brewer_Sparrow_0037_107442.jpg,Brewer Sparrow,test,3276,Brewer_Sparrow_0065_107419.jpg,Brewer Sparrow,1,True
+test,4004,Summer_Tanager_0047_140164.jpg,Summer Tanager,test,4026,Summer_Tanager_0124_139963.jpg,Summer Tanager,1,True
+train,5903,Marsh_Wren_0141_188796.jpg,Marsh Wren,test,5696,Marsh_Wren_0108_188788.jpg,Marsh Wren,6,True
+train,3675,Henslow_Sparrow_0064_796573.jpg,Henslow Sparrow,test,1187,Frigatebird_0052_43411.jpg,Frigatebird,6,False
+train,580,Yellow_Breasted_Chat_0058_21864.jpg,Yellow breasted Chat,test,3502,Henslow_Sparrow_0041_796572.jpg,Henslow Sparrow,6,False
+test,1112,Scissor_Tailed_Flycatcher_0103_41938.jpg,Scissor tailed Flycatcher,test,3195,Great_Grey_Shrike_0074_106689.jpg,Great Grey Shrike,6,False

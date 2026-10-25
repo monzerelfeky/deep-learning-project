@@ -162,5 +162,24 @@
         0.225
       ]
     }
+  },
+  "quality": {
+    "n_decode_errors": 0,
+    "missing_values": {
+      "label": 0,
+      "file_name": 0,
+      "description": 0
+    },
+    "exact_duplicate_groups": 1,
+    "exact_duplicate_groups_across_train_test": 0,
+    "near_duplicate_pairs_by_threshold": {
+      "2": 8,
+      "4": 8,
+      "6": 12
+    },
+    "near_duplicate_threshold_bits": 6,
+    "near_duplicate_pairs": 12,
+    "near_duplicate_pairs_across_train_test": 5,
+    "near_duplicate_pairs_with_different_labels": 4
   }
 }
