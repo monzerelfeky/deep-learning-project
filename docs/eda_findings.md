@@ -14,7 +14,13 @@ Without them, everything runs except the bounding-box analysis and the official-
 The first run decodes all 11,788 images and caches the per-image statistics, which takes a few minutes; later runs take seconds.
 
 All choices that affect training (normalization, vocabulary, `min_freq`, augmentation evidence) are computed on the
-**training split only**. The test set is never used to make a decision.
+**training split only**. The test set is never used to make a decision. Normalization and the vocabulary use the exact
+training partition the models train on (`configs/split_indices.json` minus the exclusions in `configs/data.yaml`), so
+validation images do not influence them either.
+
+The EDA loads the data with the same pipeline code the models use (`src/data/dataset.py`, `src/data/splitting.py`,
+`src/data/captions.py`), at the Hugging Face revisions pinned in `configs/data.yaml`. Its own per-image statistics are
+still computed on the raw, unaugmented files.
 
 ---
 
@@ -49,6 +55,8 @@ All choices that affect training (normalization, vocabulary, `min_freq`, augment
 - Training data is balanced, so we use no class weights and no oversampling.
 - The test set is imbalanced. Plain accuracy gives more weight to classes with more test images, so we report **macro-F1** alongside accuracy.
 - Validation is a **stratified 10% split of train** (fixed seed), and the test set stays untouched. That gives about 600 images, only 2–3 per class, so per-class validation scores are noise. Validation is used for overall accuracy and macro-F1 only.
+  The split is saved in `configs/split_indices.json`; after the leakage exclusions (Section 4) the models use
+  5,393 training images (26–27 per class) and 598 validation images (2–3 per class).
 
 ## 3. Images
 
@@ -86,15 +94,18 @@ to handle at test time, and we keep them.
 
 | | Mean (R, G, B) | Std (R, G, B) |
 |---|---|---|
-| CUB train | 0.4856, 0.4994, 0.4324 | 0.2272, 0.2226, 0.2613 |
+| CUB train, all 5,994 images | 0.4856, 0.4994, 0.4324 | 0.2272, 0.2226, 0.2613 |
+| **CUB training partition, 5,393 images (used by the pipeline)** | **0.4849, 0.4990, 0.4324** | **0.2271, 0.2225, 0.2613** |
 | ImageNet | 0.485, 0.456, 0.406 | 0.229, 0.224, 0.225 |
 
 Green is higher and blue lower than ImageNet, which fits outdoor photos full of foliage.
 
 **Decisions:**
 - Call `.convert("RGB")` on every image.
-- Keep the 9 grayscale images for classification and **exclude them from colorization**.
-- Normalize the scratch CNN with the CUB train statistics, and ResNet18 with the ImageNet statistics it was pretrained with.
+- Keep the 9 grayscale images for classification and **exclude them from colorization** (listed under
+  `colorization_exclude` in `configs/data.yaml`).
+- Normalize the scratch CNN with the CUB statistics of the training partition (`CNN_MEAN`/`CNN_STD` in
+  `src/data/transforms.py`), and ResNet18 with the ImageNet statistics it was pretrained with.
 - Keep low-quality images. Upsampling the 148 small images to 224 px is fine.
 
 ## 4. Data quality
@@ -119,7 +130,7 @@ real train/test duplicate (the Marsh Wren pair, at distance 6).
 
 | Finding | Pairs | Decision |
 |---|---|---|
-| **Train/test leakage** | Bronzed Cowbird train #774 / test #661, Prothonotary Warbler train #5277 / test #5115, Marsh Wren train #5903 / test #5696 | **Drop the 3 train copies** (`tables/leakage_train_to_drop.csv`). Never drop the test copy, so the test set stays the same as in published work |
+| **Train/test leakage** | Bronzed Cowbird train #774 / test #661, Prothonotary Warbler train #5277 / test #5115, Marsh Wren train #5903 / test #5696 | **Drop the 3 train copies** (`tables/leakage_train_to_drop.csv`, applied from `exclusions.train_leakage` in `configs/data.yaml`). The saved split had put #774 and #5277 in validation and #5903 in train; they are removed after the split is loaded, so validation would otherwise have contained 2 test photos. Never drop the test copy, so the test set stays the same as in published work |
 | Same photo with two labels | Chuck will Widow test #565 = Whip poor Will test #2974 | At least one label is wrong. Both are in test, so we leave them and report it as label noise |
 | Duplicates within train | Pigeon Guillemot (exact), Laysan Albatross #46/#57, Swainson Warbler #5315/#5333 | Optional: keep one copy of each |
 | Duplicates within test | Red legged Kittiwake, Brewer Sparrow, Summer Tanager | Leave as they are |
@@ -144,18 +155,20 @@ seen some CUB test birds. This can inflate transfer-learning accuracy, and the b
 
 ![Caption lengths](../outputs/eda/figures/05_caption_lengths.png)
 
-**Vocabulary.** The vocabulary is built from train only. To choose `min_freq` without touching test, we counted words on
-90% of the train images and measured how many tokens of the other 10% would become `<unk>`. The split is by image,
-because the 10 captions of one image are near-paraphrases.
+**Vocabulary.** The vocabulary is built from train only. To choose `min_freq` without touching test, we count words in
+the model-ready captions (`clean_captions`, steps 1–3 below) of the **training partition** and measure how many tokens of
+the **validation partition** would become `<unk>`. Both partitions come from the canonical split manifest, so this is
+the vocabulary the decoder will actually get. The split is by image, because the 10 captions of one image are
+near-paraphrases.
 
-| min_freq | Words kept | Train tokens covered | Held-out tokens that become `<unk>` |
+| min_freq | Words kept | Train tokens covered | Validation tokens that become `<unk>` |
 |---|---|---|---|
-| 1 | 4,061 | 100% | 0.22% |
-| 2 | 2,205 | 99.80% | 0.36% |
-| 3 | 1,636 | 99.67% | 0.44% |
-| **5** | **1,241** | **99.53%** | **0.58%** |
-| 10 | 877 | 99.26% | 0.83% |
-| 20 | 617 | 98.88% | 1.27% |
+| 1 | 3,882 | 100% | 0.20% |
+| 2 | 2,113 | 99.78% | 0.30% |
+| 3 | 1,564 | 99.65% | 0.39% |
+| **5** | **1,186** | **99.49%** | **0.54%** |
+| 10 | 842 | 99.22% | 0.81% |
+| 20 | 577 | 98.77% | 1.22% |
 
 ![Vocabulary vs min_freq](../outputs/eda/figures/05_vocab_threshold.png)
 
@@ -173,9 +186,14 @@ automatically would damage real words. Because every candidate is rare, `min_fre
 2. Lowercase; remove apostrophes ("bird's" → "birds"); replace every other character outside `[a-z0-9 ]` with a space (this also repairs the 56 broken captions); collapse repeated spaces.
 3. Drop exact duplicate captions within an image, and captions with fewer than 4 tokens.
 4. Optional: map "grey" → "gray". If we do, apply it to the evaluation references too.
-5. Build the vocabulary from the training split with **`min_freq = 5`** (1,241 words + `<pad>`, `<start>`, `<end>`, `<unk>`). Words seen 3–4 times are too rare for a decoder to learn and still include typos ("thraot", "eblly").
-6. **`max_len = 26`**: the 95th percentile (24) plus `<start>` and `<end>`. About 5% of captions are truncated.
+5. Build the vocabulary from the training partition with **`min_freq = 5`** (1,186 words + `<pad>`, `<start>`, `<end>`, `<unk>`). Words seen 3–4 times are too rare for a decoder to learn and still include typos ("thraot", "eblly").
+6. **`max_len = 26`**: the 95th percentile (24) plus `<start>` and `<end>`. About 5% of captions are truncated. On the model-ready captions of the training partition the 95th percentile is 25, because 5.03% of them are longer than 24 tokens (4.99% over the whole train split); `max_len = 26` still truncates about 5%, so it is kept.
 7. Do not correct typos.
+
+Steps 1–3 are `clean_captions()` in `src/data/captions.py`; the raw `description` is never modified. Over all
+11,788 images they turn 117,880 raw captions into 116,565: 3 are dropped for having fewer than 4 tokens and 1,312 as
+repeats within an image, leaving 7–10 captions per image. Steps 5–6 are `build_vocabulary()`, `MIN_FREQ` and `MAX_LEN`
+in the same module.
 
 Template captions are a risk for Milestone 2: a decoder can score well on BLEU by repeating generic templates.
 Generated captions should therefore be read by a person as well as scored.
@@ -245,6 +263,11 @@ Evidence from the captions (train only):
    analysis showed it cuts part of the bird in two thirds of images. **Fix:** `Resize(224)` + `CenterCrop(224)`.
 7. **Shared ids.** All 5,794 test ids also appear in train, which looked like leakage until we saw that `id` is only the
    row number. The summary now records this, and leakage is checked with `file_name`.
+8. **`min_freq` on a different split.** The held-out 10% used to choose `min_freq` was a random sample drawn by the EDA,
+   not the validation partition the models use, and the vocabulary counted every train image. **Fix:** the table in
+   Section 5 is recomputed on the canonical partitions, with the pipeline's own caption cleaning. The vocabulary at
+   `min_freq = 5` shrinks from 1,241 to 1,186 words; the `<unk>` rate barely moves (0.58% → 0.54%), so `min_freq = 5`
+   stays.
 
 ## 8. Summary: finding → evidence → recommendation
 

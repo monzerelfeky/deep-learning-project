@@ -23,17 +23,19 @@ def main():
         print("\nWARNING: Label features differ.")
         print("Manual mapping verification is required.")
 
-    train_ids = set(train_dataset["id"])
-    test_ids = set(test_dataset["id"])
+    # id is only the row number inside each split, so every test id
+    # also appears in train; file_name identifies the image
+    train_names = set(train_dataset["file_name"])
+    test_names = set(test_dataset["file_name"])
 
-    overlap = train_ids.intersection(test_ids)
+    overlap = train_names.intersection(test_names)
 
-    print("\nOverlapping image IDs:", len(overlap))
+    print("\nFile names in both train and test:", len(overlap))
 
     if not overlap:
-        print("PASSED: No overlapping image IDs.")
+        print("PASSED: No overlapping image file names.")
     else:
-        print("WARNING: Overlapping image IDs detected.")
+        print("WARNING: Overlapping image file names detected.")
 
     print("\n========================================")
 

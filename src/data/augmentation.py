@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 import torch
 
-from src.data.transforms import get_transforms
+from src.data.transforms import get_normalization, get_transforms
 
 
 def denormalize_image(tensor, model_type="scratch_cnn"):
@@ -9,19 +9,10 @@ def denormalize_image(tensor, model_type="scratch_cnn"):
     Reverse image normalization for visualization.
     """
 
-    if model_type == "scratch_cnn":
-        mean = torch.tensor([0.5, 0.5, 0.5])
-        std = torch.tensor([0.5, 0.5, 0.5])
+    mean, std = get_normalization(model_type)
 
-    elif model_type == "resnet18":
-        mean = torch.tensor([0.485, 0.456, 0.406])
-        std = torch.tensor([0.229, 0.224, 0.225])
-
-    else:
-        raise ValueError("Unsupported model type.")
-
-    mean = mean[:, None, None]
-    std = std[:, None, None]
+    mean = torch.tensor(mean)[:, None, None]
+    std = torch.tensor(std)[:, None, None]
 
     image = tensor.detach().cpu() * std + mean
 

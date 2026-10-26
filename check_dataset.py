@@ -1,5 +1,9 @@
-from src.data.dataset import load_cub_dataset
-from src.data.splitting import create_stratified_split
+from src.data.dataset import load_cub_dataset, load_data_config
+from src.data.splitting import (
+    apply_exclusions,
+    create_stratified_split,
+    load_split_indices
+)
 
 
 print("Loading original training dataset...")
@@ -7,6 +11,8 @@ print("Loading original training dataset...")
 dataset = load_cub_dataset("train")
 
 
+# Re-creates the saved split; fails instead of overwriting
+# if the result differs from configs/split_indices.json
 print("\nCreating stratified split...")
 
 train_dataset, val_dataset = create_stratified_split(
@@ -26,10 +32,11 @@ print("\nChecking split integrity...")
 
 assert len(train_dataset) + len(val_dataset) == len(dataset)
 
-train_ids = set(train_dataset["id"])
-val_ids = set(val_dataset["id"])
+# id is only the row number, so file_name is the real image key
+train_names = set(train_dataset["file_name"])
+val_names = set(val_dataset["file_name"])
 
-assert train_ids.isdisjoint(val_ids), (
+assert train_names.isdisjoint(val_names), (
     "ERROR: Training and validation overlap!"
 )
 
@@ -45,6 +52,25 @@ assert train_classes == val_classes, (
 )
 
 print("Both splits contain the same classes.")
+
+print("\nApplying exclusions from configs/data.yaml...")
+
+train_indices, val_indices = load_split_indices(dataset)
+
+leakage = [
+    entry["file_name"]
+    for entry in load_data_config()["exclusions"]["train_leakage"]
+]
+
+train_indices, val_indices, excluded = apply_exclusions(
+    dataset, train_indices, val_indices, leakage
+)
+
+print("Training images used:", len(train_indices))
+print("Validation images used:", len(val_indices))
+print("Excluded images:", len(excluded))
+
+assert len(train_indices) + len(val_indices) + len(excluded) == len(dataset)
 
 print("\nSplit indices saved successfully!")
 

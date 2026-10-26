@@ -33,8 +33,8 @@ import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 from PIL import Image, ImageEnhance, ImageOps  # noqa: E402
 
-TRAIN_REPO = "Multimodal-Fatima/CUB_train"
-TEST_REPO = "Multimodal-Fatima/CUB_test"
+from src.data.captions import MIN_TOKENS, build_vocabulary, clean_caption, clean_captions, preprocess_captions  # noqa: E402
+
 STATS_SIZE = 256  # pixel statistics are computed on images resized to 256x256
 # Largest per-pixel max-min channel spread (0-255) below this = no color anywhere = grayscale.
 # A mean over the image fails both ways: color birds on big gray sky/water score low, and a
@@ -71,10 +71,12 @@ class EDAContext:
     near_dup_threshold: int = 6  # 4 misses a real train/test duplicate on CUB (Marsh Wren, d=6)
     dup_review: Path | None = None  # hand-written verdicts for near-duplicate pairs
     cub_meta: Path | None = None  # folder with the official CUB text files (optional)
+    cache_dir: str | None = None  # Hugging Face cache folder
     summary: dict = field(default_factory=dict)
     _metadata: pd.DataFrame | None = None
     _image_df: pd.DataFrame | None = None
     _captions: tuple | None = None
+    _partition: dict | None = None
 
     def __post_init__(self):
         self.fig_dir = self.out / "figures"
@@ -108,6 +110,13 @@ class EDAContext:
         if self._captions is None:
             self._captions = build_caption_frames(self)
         return self._captions
+
+    @property
+    def partition(self) -> dict:
+        """file_name -> "train" / "val" for the original train split; excluded images are missing."""
+        if self._partition is None:
+            self._partition = load_partition_map(self.cache_dir)
+        return self._partition
 
 
 def _to_builtin(obj):
@@ -178,14 +187,29 @@ def show_image_grid(ctx: EDAContext, items, path: Path, title: str, ncols: int =
 # Section 1 - loading and inspection
 # --------------------------------------------------------------------------
 def load_splits(sample: int | None = None, seed: int = 42, cache_dir: str | None = None):
-    from datasets import load_dataset
+    from src.data.dataset import load_cub_dataset  # same loader and pinned revision as the pipeline
 
-    train = load_dataset(TRAIN_REPO, split="train", cache_dir=cache_dir)
-    test = load_dataset(TEST_REPO, split="test", cache_dir=cache_dir)
+    train = load_cub_dataset("train", cache_dir=cache_dir)
+    test = load_cub_dataset("test", cache_dir=cache_dir)
     if sample:  # small random subset for quick test runs
         train = train.shuffle(seed=seed).select(range(min(sample, len(train))))
         test = test.shuffle(seed=seed).select(range(min(sample, len(test))))
     return train, test
+
+
+def load_partition_map(cache_dir: str | None = None) -> dict[str, str]:
+    """Canonical train/validation partition of the original train split, keyed by file_name.
+
+    Comes from configs/split_indices.json after the exclusions in configs/data.yaml, the same
+    partitions the models train on. Keyed by file_name so it also works with --sample.
+    """
+    from src.data.splitting import load_partitions
+
+    parts = load_partitions(cache_dir=cache_dir)
+    mapping = {}
+    for name in ("train", "val"):
+        mapping.update(dict.fromkeys(parts[name]["file_name"], name))
+    return mapping
 
 
 OFFICIAL_ARCHIVE_URL = "https://data.caltech.edu/records/65de6-vp158/files/CUB_200_2011.tgz?download=1"
@@ -314,6 +338,15 @@ def step_inspect(ctx: EDAContext):
             "label_differs_from_official": int((known & (joined.label_norm != joined.official_class)).sum()),
         }
 
+    # file_name is the key for leakage checks and exclusions, so it must be unique within a split
+    if "file_name" in meta:
+        info["duplicate_file_names_within_split"] = int(meta.duplicated(["split", "file_name"]).sum())
+    info["label_names_identical_train_test"] = label_names(ctx.train) == label_names(ctx.test)
+    from src.data.dataset import load_data_config
+
+    revisions = load_data_config()["dataset"]
+    info["revisions"] = {split: revisions[f"{split}_revision"] for split in ("train", "test")}
+
     ctx.summary["inspect"] = info
 
     rng = random.Random(ctx.seed)
@@ -374,6 +407,18 @@ def step_classes(ctx: EDAContext):
     info["val_images_per_class_for_smallest_class"] = {
         str(frac): int(np.floor(min_train * frac)) for frac in (0.1, 0.15, 0.2)
     }
+
+    # The partitions the models actually use: saved stratified split minus the leakage exclusions
+    train_meta = meta[meta.split == "train"]
+    partition = train_meta.file_name.map(ctx.partition).fillna("excluded")
+    per_class = train_meta.assign(partition=partition).groupby(["label_name", "partition"]).size()
+    per_class = per_class.unstack(fill_value=0)
+    info["canonical_partitions"] = {
+        part: {"images": int(per_class[part].sum()), "min_per_class": int(per_class[part].min()),
+               "max_per_class": int(per_class[part].max())}
+        for part in ("train", "val") if part in per_class
+    }
+    info["canonical_partitions"]["excluded"] = int((partition == "excluded").sum())
     ctx.summary["classes"] = info
 
 
@@ -538,9 +583,9 @@ def step_images(ctx: EDAContext):
     not_rgb = df[df["mode"].notna() & (df["mode"] != "RGB")]
     not_rgb[["split", "idx", "file_name", "mode"]].to_csv(ctx.table_dir / "non_rgb_images.csv", index=False)
 
-    # Normalisation statistics from the TRAINING split only (test must stay unseen)
-    mean = [train_ok[f"mean_{c}"].mean() for c in "rgb"]
-    std = [float(np.sqrt(train_ok[f"msq_{c}"].mean() - m ** 2)) for c, m in zip("rgb", mean)]
+    # Normalisation statistics from the TRAINING split only (test must stay unseen).
+    # The pipeline uses the training partition: no validation and no excluded images
+    train_partition = train_ok[train_ok.file_name.map(ctx.partition) == "train"]
 
     ctx.summary["images"] = {
         "n_images": int(len(df)),
@@ -553,9 +598,17 @@ def step_images(ctx: EDAContext):
         "n_grayscale": {split: int(part.is_grayscale.sum()) for split, part in df.groupby("split")},
         "brightness": describe(ok.brightness), "contrast": describe(ok.contrast),
         "blur_lap_var": describe(ok.blur_lap_var), "colorfulness": describe(ok.colorfulness),
-        "normalization_train": {"mean": [round(m, 4) for m in mean], "std": [round(s, 4) for s in std]},
+        "normalization_train": channel_stats(train_ok),
         "normalization_imagenet": {"mean": IMAGENET_MEAN, "std": IMAGENET_STD},
+        "normalization_train_partition": channel_stats(train_partition),
     }
+
+
+def channel_stats(rows: pd.DataFrame) -> dict:
+    """Dataset mean and std per channel from per-image means and mean squares (all images are 256x256)."""
+    mean = [rows[f"mean_{c}"].mean() for c in "rgb"]
+    std = [float(np.sqrt(rows[f"msq_{c}"].mean() - m ** 2)) for c, m in zip("rgb", mean)]
+    return {"mean": [round(m, 4) for m in mean], "std": [round(s, 4) for s in std]}
 
 
 # --------------------------------------------------------------------------
@@ -688,14 +741,6 @@ def step_quality(ctx: EDAContext):
 # --------------------------------------------------------------------------
 # Section 5 - captions
 # --------------------------------------------------------------------------
-def clean_caption(text: str) -> str:
-    """Proposed cleaning rule (Member 2 implements the final version in the pipeline)."""
-    text = text.lower()
-    text = re.sub(r"[’']", "", text)  # bird's -> birds
-    text = re.sub(r"[^a-z0-9 ]+", " ", text)  # punctuation and other symbols -> space
-    return re.sub(r"\s+", " ", text).strip()
-
-
 def edits1(word: str) -> set[str]:
     """Every string one delete / swap / replace / insert away from word (Norvig's speller)."""
     letters = "abcdefghijklmnopqrstuvwxyz"
@@ -708,14 +753,13 @@ def edits1(word: str) -> set[str]:
 
 
 def build_caption_frames(ctx: EDAContext):
-    """Returns (one row per caption, one row per image)."""
+    """Returns (one row per caption, one row per image). Uses the pipeline's caption functions."""
     caption_rows, image_rows = [], []
     for r in ctx.metadata.itertuples():
         desc = r.description if isinstance(r.description, str) else ""
-        lines = desc.split("\n")
-        captions = [line.strip() for line in lines if line.strip()]
+        captions = preprocess_captions(desc)
         image_rows.append({"split": r.split, "idx": r.idx, "n_captions": len(captions),
-                           "n_empty_lines": len(lines) - len(captions)})
+                           "n_empty_lines": len(desc.split("\n")) - len(captions)})
         for j, raw in enumerate(captions):
             cleaned = clean_caption(raw)
             caption_rows.append({
@@ -751,25 +795,26 @@ def step_captions(ctx: EDAContext):
     caps[caps.n_tokens > pct["p99"]].to_csv(ctx.table_dir / "very_long_captions.csv", index=False)
     info["very_short_captions_le3_tokens"] = int((caps.n_tokens <= 3).sum())
 
-    # 3) Vocabulary, built from TRAIN only. min_freq is chosen without touching test: words are
-    # counted on 90% of training images and <unk> is measured on the other 10%, split by image
-    # because the 10 captions of one image are near-paraphrases
+    # 3) Vocabulary, built from TRAIN only. min_freq is chosen without touching test, on the
+    # canonical partitions the decoder will use: the vocabulary comes from the model-ready captions
+    # (clean_captions) of the training partition, and <unk> is measured on the validation
+    # partition. The split is by image, because the 10 captions of one image are near-paraphrases
     train_counts = Counter(tok for c in train_caps.clean for tok in c.split())
-    images = sorted(train_caps.idx.unique())
-    held_out = set(random.Random(ctx.seed).sample(images, k=max(1, len(images) // 10)))
-    is_held = train_caps.idx.isin(held_out)
-    fit_counts = Counter(tok for c in train_caps.clean[~is_held] for tok in c.split())
-    held_tokens = [tok for c in train_caps.clean[is_held] for tok in c.split()]
-    total_train = sum(train_counts.values())
+    meta_train = ctx.metadata[ctx.metadata.split == "train"]
+    partition = meta_train.file_name.map(ctx.partition)
+    fit_caps = [c for d in meta_train.description[partition == "train"] for c in clean_captions(d)]
+    held_caps = [c for d in meta_train.description[partition == "val"] for c in clean_captions(d)]
+    fit_counts = Counter(tok for c in fit_caps for tok in c.split())
+    held_tokens = [tok for c in held_caps for tok in c.split()]
+    total_fit = sum(fit_counts.values())
     vocab_rows = []
     for k in (1, 2, 3, 5, 10, 20):
-        kept = {w for w, n in train_counts.items() if n >= k}
-        fit_kept = {w for w, n in fit_counts.items() if n >= k}
+        kept = set(build_vocabulary(fit_caps, min_freq=k)) & set(fit_counts)
         vocab_rows.append({
             "min_freq": k, "vocab_size": len(kept),
-            "train_token_coverage_%": round(100 * sum(train_counts[w] for w in kept) / total_train, 3),
+            "train_token_coverage_%": round(100 * sum(fit_counts[w] for w in kept) / max(total_fit, 1), 3),
             "heldout_unk_token_rate_%": round(
-                100 * sum(t not in fit_kept for t in held_tokens) / max(len(held_tokens), 1), 3),
+                100 * sum(t not in kept for t in held_tokens) / max(len(held_tokens), 1), 3),
         })
     vocab_df = pd.DataFrame(vocab_rows)
     vocab_df.to_csv(ctx.table_dir / "vocab_by_min_freq.csv", index=False)
@@ -829,6 +874,21 @@ def step_captions(ctx: EDAContext):
     ax.set(title="Color words in captions (train)", ylabel="occurrences")
     ax.tick_params(axis="x", rotation=45)
     save_fig(fig, ctx.fig_dir / "05_color_words.png")
+
+    # 7) What the pipeline keeps: clean_captions() drops captions under MIN_TOKENS tokens, then
+    # exact repeats within an image. Lengths on the training partition check max_len
+    kept_per_image = pd.Series([len(clean_captions(d)) for d in ctx.metadata.description.fillna("")])
+    n_short = int((caps.n_tokens < MIN_TOKENS).sum())
+    info["pipeline_captions"] = {
+        "raw": int(len(caps)), "dropped_under_min_tokens": n_short,
+        "dropped_repeats_within_image": int(len(caps) - n_short - kept_per_image.sum()),
+        "kept": int(kept_per_image.sum()),
+        "kept_per_image": {"min": int(kept_per_image.min()), "max": int(kept_per_image.max())},
+    }
+    fit_lengths = [len(c.split()) for c in fit_caps]
+    if fit_lengths:
+        info["tokens_per_caption_train_partition"] = {
+            **{f"p{p}": int(np.percentile(fit_lengths, p)) for p in (50, 95)}, "max": int(max(fit_lengths))}
 
     ctx.summary["captions"] = info
 
@@ -1020,7 +1080,7 @@ def main(argv=None):
     train, test = load_splits(args.sample, args.seed, args.cache_dir)
     ctx = EDAContext(train=train, test=test, out=Path(args.out), seed=args.seed, sample=args.sample,
                      recompute=args.recompute, near_dup_threshold=args.near_dup_threshold,
-                     dup_review=Path(args.dup_review), cub_meta=Path(args.cub_meta))
+                     dup_review=Path(args.dup_review), cub_meta=Path(args.cub_meta), cache_dir=args.cache_dir)
     for name in args.steps:
         print(f"[eda] step: {name}")
         STEPS[name](ctx)

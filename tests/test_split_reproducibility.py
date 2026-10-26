@@ -1,8 +1,12 @@
 import json
 
+import pytest
 from sklearn.model_selection import train_test_split
 
 from src.data.dataset import load_cub_dataset
+from src.data.splitting import SPLIT_PATH
+
+pytestmark = pytest.mark.integration
 
 
 def test_split_reproducibility():
@@ -10,7 +14,7 @@ def test_split_reproducibility():
     dataset = load_cub_dataset("train")
 
     indices = list(range(len(dataset)))
-    labels = dataset["label"]
+    labels = list(dataset["label"])
 
     # Recreate the original split
     train_indices, val_indices = train_test_split(
@@ -25,7 +29,7 @@ def test_split_reproducibility():
 
     # Load saved indices
     with open(
-        "configs/split_indices.json",
+        SPLIT_PATH,
         "r",
         encoding="utf-8"
     ) as file:

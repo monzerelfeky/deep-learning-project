@@ -3,15 +3,15 @@ import torch
 from src.data.dataloaders import create_dataloaders
 
 
-def check_model_pipeline(model_type):
+def check_model_pipeline(model_type, num_workers=0):
 
-    print(f"\nTesting pipeline for: {model_type}")
+    print(f"\nTesting pipeline for: {model_type} (num_workers={num_workers})")
 
     train_loader, val_loader, test_loader = create_dataloaders(
         model_type=model_type,
         batch_size=8,
         image_size=224,
-        num_workers=0
+        num_workers=num_workers
     )
 
     print("\nDataset sizes:")
@@ -57,6 +57,9 @@ def main():
     check_model_pipeline("scratch_cnn")
 
     check_model_pipeline("resnet18")
+
+    # Worker processes must be able to pickle the datasets and transforms
+    check_model_pipeline("scratch_cnn", num_workers=2)
 
     print("\n================================")
     print("FULL DATA PIPELINE TEST PASSED!")
