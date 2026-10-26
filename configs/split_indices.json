@@ -1,4 +1,8 @@
 {
+  "dataset_repo": "Multimodal-Fatima/CUB_train",
+  "dataset_revision": "bd3988995e6db193427255abdebd522afe24ce76",
+  "num_rows": 5994,
+  "file_names_sha256": "5dd7dad722a2af74ea596343538b50c737ca1dc7692a6c6ea3c0cf455ef3f094",
   "random_seed": 42,
   "validation_size": 0.1,
   "train_indices": [
