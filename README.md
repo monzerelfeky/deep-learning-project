@@ -19,11 +19,13 @@ CUB-200-2011 images ──► Encoder (scratch CNN | ResNet18) ──► feature
 ```
 configs/                 YAML experiment configs (one file per experiment family)
 data/                    Dataset goes here (git-ignored) — see data/README.md
-notebooks/eda.ipynb      Exploratory data analysis
-outputs/                 Checkpoints, logs, figures (git-ignored)
+docs/eda_findings.md     EDA findings and preprocessing recommendations
+notebooks/eda.ipynb      EDA supplement: saved results + extra exploration
+outputs/                 Checkpoints, logs, figures (git-ignored, except the EDA results in outputs/eda/)
 src/
 ├── cli.py               Entry point: train / evaluate / predict / tune / gradcam
 ├── data/
+│   ├── eda.py           Exploratory data analysis (python -m src.data.eda)
 │   ├── dataset.py       CUBDataset, split creation, DataLoader factory
 │   ├── transforms.py    Preprocessing + augmentation pipelines
 │   └── captions.py      Caption loading + cleaning (stats in Phase 1, used in Phase 2)
@@ -70,6 +72,11 @@ tests/test_contracts.py  Shape/interface checks every module must pass
 
 ```bash
 pip install -r requirements.txt
+
+# Exploratory data analysis: figures, tables and outputs/eda/summary.json (findings: docs/eda_findings.md)
+python -m src.data.eda --out outputs/eda --fetch-cub-meta           # all steps; the first run takes a few minutes
+python -m src.data.eda --out outputs/eda --steps captions augment   # only some steps
+python -m src.data.eda --out outputs/eda_test --sample 200          # quick test on 200 images per split
 
 python -m src.cli train    --config configs/scratch.yaml
 python -m src.cli train    --config configs/transfer.yaml --set train.lr=0.0001

@@ -1,0 +1,9 @@
+split,idx,file_name,mode
+train,726,Pelagic_Cormorant_0022_23802.jpg,L
+train,1868,Ivory_Gull_0040_49180.jpg,L
+train,1950,Western_Gull_0002_54825.jpg,L
+train,2764,Clark_Nutcracker_0020_85099.jpg,L
+test,193,Brewer_Blackbird_0028_2682.jpg,L
+test,1764,Ivory_Gull_0085_49456.jpg,L
+test,2472,Mallard_0130_76836.jpg,L
+test,3082,White_Necked_Raven_0070_102645.jpg,L

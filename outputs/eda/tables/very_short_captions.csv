@@ -1,0 +1,4 @@
+split,idx,label_name,caption_no,raw,clean,n_words_raw,n_tokens
+train,1171,Olive sided Flycatcher,7,this,this,1,1
+train,5556,Cedar Waxwing,1,the colorful bird,the colorful bird,3,3
+test,4978,Orange crowned Warbler,7,this,this,1,1

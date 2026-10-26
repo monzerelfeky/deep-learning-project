@@ -1,0 +1,13 @@
+file_a,file_b,verdict,note
+Laysan_Albatross_0065_809.jpg,Laysan_Albatross_0096_673.jpg,duplicate,same photo
+Bronzed_Cowbird_0074_24045.jpg,Bronzed_Cowbird_0025_796213.jpg,duplicate,same photo in train and test
+Chuck_Will_Widow_0042_796983.jpg,Whip_Poor_Will_0002_796427.jpg,duplicate,same photo with two different species labels
+Swainson_Warbler_0022_794868.jpg,Swainson_Warbler_0049_794880.jpg,duplicate,second copy downscaled to 200x133
+Red_Legged_Kittiwake_0020_795439.jpg,Red_Legged_Kittiwake_0042_795457.jpg,duplicate,first copy is a 140x179 thumbnail
+Prothonotary_Warbler_0020_174122.jpg,Prothonotary_Warbler_0105_174097.jpg,duplicate,same photo in train and test
+Brewer_Sparrow_0037_107442.jpg,Brewer_Sparrow_0065_107419.jpg,duplicate,same photo
+Summer_Tanager_0047_140164.jpg,Summer_Tanager_0124_139963.jpg,duplicate,same photo
+Marsh_Wren_0141_188796.jpg,Marsh_Wren_0108_188788.jpg,duplicate,same shot with a different crop
+Henslow_Sparrow_0064_796573.jpg,Frigatebird_0052_43411.jpg,false_positive,different birds; small bird centered on a plain background
+Yellow_Breasted_Chat_0058_21864.jpg,Henslow_Sparrow_0041_796572.jpg,false_positive,different birds; small bird on a blurred green background
+Scissor_Tailed_Flycatcher_0103_41938.jpg,Great_Grey_Shrike_0074_106689.jpg,false_positive,different birds; both perched on a wire against blue sky
