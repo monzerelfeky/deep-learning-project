@@ -13,6 +13,7 @@ data/*
 outputs/*
 !outputs/.gitkeep
 mlruns/
+checkpoints/
 *.pt
 *.pth
 *.ckpt
