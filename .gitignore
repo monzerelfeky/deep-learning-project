@@ -13,6 +13,7 @@ data/*
 outputs/*
 !outputs/.gitkeep
 mlruns/
+checkpoints/
 *.pt
 *.pth
 *.ckpt
@@ -22,3 +23,8 @@ mlruns/
 .idea/
 .DS_Store
 Thumbs.db
+
+# EDA outputs: commit figures, summary and small tables; the per-image table is regenerated
+!outputs/eda/
+outputs/eda/tables/image_stats*.csv
+outputs/eda_test/

@@ -1,0 +1,5 @@
+model,history_csv,best_epoch_by_val_macro_f1,best_val_accuracy,best_val_macro_f1
+Scratch CNN V1,outputs\training\scratch_cnn_experiment_01.csv,20,0.10869565217391304,0.0751786943837186
+Scratch CNN V2,outputs\training\scratch_cnn_experiment_02.csv,19,0.1605351170568562,0.13504330288734312
+ResNet18 frozen backbone,outputs\training\resnet18_frozen_20ep.csv,20,0.6086956521739131,0.5990685425685425
+ResNet18 fine-tuned,outputs\training\resnet18_finetune_20ep.csv,17,0.7140468227424749,0.703547619047619
