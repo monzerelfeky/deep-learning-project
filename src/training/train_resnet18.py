@@ -17,6 +17,7 @@ import json
 import random
 from contextlib import nullcontext
 from pathlib import Path
+import os
 
 import numpy as np
 import torch
@@ -110,7 +111,10 @@ def _mlflow_context(run_name: str):
     if mlflow is None:
         print("MLflow is not installed; metrics will still be saved to CSV and checkpoints.")
         return nullcontext()
-    tracking_uri = Path("mlruns").resolve().as_uri()
+    tracking_uri = os.environ.get(
+    "MLFLOW_TRACKING_URI",
+    "sqlite:///mlflow.db",
+    )
     mlflow.set_tracking_uri(tracking_uri)
     mlflow.set_experiment("cub200-resnet18-transfer-learning")
     return mlflow.start_run(run_name=run_name)
