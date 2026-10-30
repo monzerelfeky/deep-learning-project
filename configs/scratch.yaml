@@ -1,0 +1,60 @@
+
+# Scratch CNN experiments
+# CUB-200-2011, 200-class bird classification
+
+project:
+  name: cub200_scratch_classification
+  num_classes: 200
+  image_size: 224
+  seed: 42
+
+data:
+  model_type: scratch_cnn
+  batch_size: 4
+  split_config: configs/split_indices.json
+
+experiments:
+  cnn_v1:
+    architecture: ScratchCNNEncoder
+    model_file: src/models/scratch_cnn.py
+    feature_dim: 256
+    epochs: 20
+
+    optimizer:
+      name: Adam
+      learning_rate: 0.001
+
+    scheduler:
+      name: none
+
+    checkpoint:
+      best: checkpoints/scratch_cnn/experiment_01/best_model.pt
+      last: checkpoints/scratch_cnn/experiment_01/last_model.pt
+      selection_metric: val_macro_f1
+
+    history: outputs/training/scratch_cnn_experiment_01.csv
+
+  cnn_v2:
+    architecture: ScratchCNNEncoderV2
+    model_file: src/models/scratch_cnn_v2.py
+    feature_dim: 256
+    epochs: 20
+
+    optimizer:
+      name: AdamW
+      learning_rate: 0.001
+      weight_decay: 0.0001
+
+    scheduler:
+      name: ReduceLROnPlateau
+      monitor: val_loss
+      factor: 0.5
+      patience: 3
+      min_lr: 0.000001
+
+    checkpoint:
+      best: checkpoints/scratch_cnn/experiment_02/best_model.pt
+      last: checkpoints/scratch_cnn/experiment_02/last_model.pt
+      selection_metric: val_macro_f1
+
+    history: outputs/training/scratch_cnn_experiment_02.csv

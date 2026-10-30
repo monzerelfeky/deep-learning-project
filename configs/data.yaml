@@ -1,0 +1,41 @@
+# CUB-200-2011 data identity and record lists shared by the EDA (src/data/eda.py)
+# and the training pipeline (src/data/). Evidence for every entry: docs/eda_findings.md.
+
+dataset:
+  train_repo: Multimodal-Fatima/CUB_train
+  test_repo: Multimodal-Fatima/CUB_test
+  # Hugging Face commit hashes. configs/split_indices.json stores a hash of the ordered
+  # file names, so a different revision with a different row order is rejected.
+  train_revision: bd3988995e6db193427255abdebd522afe24ce76
+  test_revision: 82447a42c5e05c7fe21cd36accfdf399148e8668
+
+exclusions:
+  # Train images whose photo is also in the test set (checked by eye, EDA section 4).
+  # Removed from train or validation after the split manifest is loaded, so the saved
+  # indices stay valid. The test copies are never removed.
+  train_leakage:
+    - file_name: Bronzed_Cowbird_0074_24045.jpg
+      reason: same photo as test #661 Bronzed_Cowbird_0025_796213.jpg
+    - file_name: Prothonotary_Warbler_0020_174122.jpg
+      reason: same photo as test #5115 Prothonotary_Warbler_0105_174097.jpg
+    - file_name: Marsh_Wren_0141_188796.jpg
+      reason: same photo as test #5696 Marsh_Wren_0108_188788.jpg
+
+# Truly black-and-white photos (EDA section 3). Kept for classification; a colorization
+# model has no color target for them.
+colorization_exclude:
+  - {split: train, file_name: Pelagic_Cormorant_0022_23802.jpg}
+  - {split: train, file_name: California_Gull_0012_41272.jpg}
+  - {split: train, file_name: Ivory_Gull_0040_49180.jpg}
+  - {split: train, file_name: Western_Gull_0002_54825.jpg}
+  - {split: train, file_name: Clark_Nutcracker_0020_85099.jpg}
+  - {split: test, file_name: Brewer_Blackbird_0028_2682.jpg}
+  - {split: test, file_name: Ivory_Gull_0085_49456.jpg}
+  - {split: test, file_name: Mallard_0130_76836.jpg}
+  - {split: test, file_name: White_Necked_Raven_0070_102645.jpg}
+
+# Recorded for error analysis only; nothing in the pipeline reads or applies this.
+documented_only:
+  test_label_noise:
+    - files: [Chuck_Will_Widow_0042_796983.jpg, Whip_Poor_Will_0002_796427.jpg]
+      note: same photo in test #565 and #2974 under two species; at least one label is wrong

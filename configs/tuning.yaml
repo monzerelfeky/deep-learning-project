@@ -1,0 +1,43 @@
+experiment:
+  name: cub200-hyperparameter-tuning
+  seed: 42
+  tracking_uri: sqlite:///mlflow.db
+
+data:
+  model_type: scratch_cnn
+  config_path: configs/data.yaml
+  split_path: configs/split_indices.json
+  image_size: 224
+  num_workers: 2
+
+model:
+  architecture: ScratchCNNEncoderV2
+  num_classes: 200
+
+tuning:
+  metric: val_macro_f1
+  mode: maximize
+  strategies:
+    grid:
+      learning_rate: [0.001, 0.0003, 0.0001]
+      batch_size: [8]
+      weight_decay: [0.0, 0.0001]
+      use_augmentation: [false, true]
+
+    random:
+      n_iter: 4
+      learning_rate: [0.001, 0.0003, 0.0001]
+      batch_size: [8]
+      weight_decay: [0.0, 0.0001]
+      use_augmentation: [false, true]
+
+training:
+  epochs: 20
+  optimizer: AdamW
+  selection_metric: val_macro_f1
+  scheduler:
+    name: ReduceLROnPlateau
+    monitor: val_loss
+    factor: 0.5
+    patience: 3
+    min_lr: 0.000001

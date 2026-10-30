@@ -1,0 +1,373 @@
+{
+  "inspect": {
+    "train": {
+      "num_rows": 5994,
+      "columns": {
+        "image": "Image(mode=None, decode=True)",
+        "description": "Value('string')",
+        "label": "ClassLabel(names=['Black footed Albatross', 'Laysan Albatross', 'Sooty Albatross', 'Groove billed Ani', 'Crested Auklet', 'Least Auklet', 'Parakeet Auklet', 'Rhinoceros Auklet', 'Brewer Blackbird', 'Red winged Blackbird', 'Rusty Blackbird', 'Yellow headed Blackbird', 'Bobolink', 'Indigo Bunting', 'Lazuli Bunting', 'Painted Bunting', 'Cardinal', 'Spotted Catbird', 'Gray Catbird', 'Yellow breasted Chat', 'Eastern Towhee', 'Chuck will Widow', 'Brandt Cormorant', 'Red faced Cormorant', 'Pelagic Cormorant', 'Bronzed Cowbird', 'Shiny Cowbird', 'Brown Creeper', 'American Crow', 'Fish Crow', 'Black billed Cuckoo', 'Mangrove Cuckoo', 'Yellow billed Cuckoo', 'Gray crowned Rosy Finch', 'Purple Finch', 'Northern Flicker', 'Acadian Flycatcher', 'Great Crested Flycatcher', 'Least Flycatcher', 'Olive sided Flycatcher', 'Scissor tailed Flycatcher', 'Vermilion Flycatcher', 'Yellow bellied Flycatcher', 'Frigatebird', 'Northern Fulmar', 'Gadwall', 'American Goldfinch', 'European Goldfinch', 'Boat tailed Grackle', 'Eared Grebe', 'Horned Grebe', 'Pied billed Grebe', 'Western Grebe', 'Blue Grosbeak', 'Evening Grosbeak', 'Pine Grosbeak', 'Rose breasted Grosbeak', 'Pigeon Guillemot', 'California Gull', 'Glaucous winged Gull', 'Heermann Gull', 'Herring Gull', 'Ivory Gull', 'Ring billed Gull', 'Slaty backed Gull', 'Western Gull', 'Anna Hummingbird', 'Ruby throated Hummingbird', 'Rufous Hummingbird', 'Green Violetear', 'Long tailed Jaeger', 'Pomarine Jaeger', 'Blue Jay', 'Florida Jay', 'Green Jay', 'Dark eyed Junco', 'Tropical Kingbird', 'Gray Kingbird', 'Belted Kingfisher', 'Green Kingfisher', 'Pied Kingfisher', 'Ringed Kingfisher', 'White breasted Kingfisher', 'Red legged Kittiwake', 'Horned Lark', 'Pacific Loon', 'Mallard', 'Western Meadowlark', 'Hooded Merganser', 'Red breasted Merganser', 'Mockingbird', 'Nighthawk', 'Clark Nutcracker', 'White breasted Nuthatch', 'Baltimore Oriole', 'Hooded Oriole', 'Orchard Oriole', 'Scott Oriole', 'Ovenbird', 'Brown Pelican', 'White Pelican', 'Western Wood Pewee', 'Sayornis', 'American Pipit', 'Whip poor Will', 'Horned Puffin', 'Common Raven', 'White necked Raven', 'American Redstart', 'Geococcyx', 'Loggerhead Shrike', 'Great Grey Shrike', 'Baird Sparrow', 'Black throated Sparrow', 'Brewer Sparrow', 'Chipping Sparrow', 'Clay colored Sparrow', 'House Sparrow', 'Field Sparrow', 'Fox Sparrow', 'Grasshopper Sparrow', 'Harris Sparrow', 'Henslow Sparrow', 'Le Conte Sparrow', 'Lincoln Sparrow', 'Nelson Sharp tailed Sparrow', 'Savannah Sparrow', 'Seaside Sparrow', 'Song Sparrow', 'Tree Sparrow', 'Vesper Sparrow', 'White crowned Sparrow', 'White throated Sparrow', 'Cape Glossy Starling', 'Bank Swallow', 'Barn Swallow', 'Cliff Swallow', 'Tree Swallow', 'Scarlet Tanager', 'Summer Tanager', 'Artic Tern', 'Black Tern', 'Caspian Tern', 'Common Tern', 'Elegant Tern', 'Forsters Tern', 'Least Tern', 'Green tailed Towhee', 'Brown Thrasher', 'Sage Thrasher', 'Black capped Vireo', 'Blue headed Vireo', 'Philadelphia Vireo', 'Red eyed Vireo', 'Warbling Vireo', 'White eyed Vireo', 'Yellow throated Vireo', 'Bay breasted Warbler', 'Black and white Warbler', 'Black throated Blue Warbler', 'Blue winged Warbler', 'Canada Warbler', 'Cape May Warbler', 'Cerulean Warbler', 'Chestnut sided Warbler', 'Golden winged Warbler', 'Hooded Warbler', 'Kentucky Warbler', 'Magnolia Warbler', 'Mourning Warbler', 'Myrtle Warbler', 'Nashville Warbler', 'Orange crowned Warbler', 'Palm Warbler', 'Pine Warbler', 'Prairie Warbler', 'Prothonotary Warbler', 'Swainson Warbler', 'Tennessee Warbler', 'Wilson Warbler', 'Worm eating Warbler', 'Yellow Warbler', 'Northern Waterthrush', 'Louisiana Waterthrush', 'Bohemian Waxwing', 'Cedar Waxwing', 'American Three toed Woodpecker', 'Pileated Woodpecker', 'Red bellied Woodpecker', 'Red cockaded Woodpecker', 'Red headed Woodpecker', 'Downy Woodpecker', 'Bewick Wren', 'Cactus Wren', 'Carolina Wren', 'House Wren', 'Marsh Wren', 'Rock Wren', 'Winter Wren', 'Common Yellowthroat'])",
+        "file_name": "Value('string')",
+        "id": "Value('int64')"
+      }
+    },
+    "test": {
+      "num_rows": 5794,
+      "columns": {
+        "image": "Image(mode=None, decode=True)",
+        "description": "Value('string')",
+        "label": "ClassLabel(names=['Black footed Albatross', 'Laysan Albatross', 'Sooty Albatross', 'Groove billed Ani', 'Crested Auklet', 'Least Auklet', 'Parakeet Auklet', 'Rhinoceros Auklet', 'Brewer Blackbird', 'Red winged Blackbird', 'Rusty Blackbird', 'Yellow headed Blackbird', 'Bobolink', 'Indigo Bunting', 'Lazuli Bunting', 'Painted Bunting', 'Cardinal', 'Spotted Catbird', 'Gray Catbird', 'Yellow breasted Chat', 'Eastern Towhee', 'Chuck will Widow', 'Brandt Cormorant', 'Red faced Cormorant', 'Pelagic Cormorant', 'Bronzed Cowbird', 'Shiny Cowbird', 'Brown Creeper', 'American Crow', 'Fish Crow', 'Black billed Cuckoo', 'Mangrove Cuckoo', 'Yellow billed Cuckoo', 'Gray crowned Rosy Finch', 'Purple Finch', 'Northern Flicker', 'Acadian Flycatcher', 'Great Crested Flycatcher', 'Least Flycatcher', 'Olive sided Flycatcher', 'Scissor tailed Flycatcher', 'Vermilion Flycatcher', 'Yellow bellied Flycatcher', 'Frigatebird', 'Northern Fulmar', 'Gadwall', 'American Goldfinch', 'European Goldfinch', 'Boat tailed Grackle', 'Eared Grebe', 'Horned Grebe', 'Pied billed Grebe', 'Western Grebe', 'Blue Grosbeak', 'Evening Grosbeak', 'Pine Grosbeak', 'Rose breasted Grosbeak', 'Pigeon Guillemot', 'California Gull', 'Glaucous winged Gull', 'Heermann Gull', 'Herring Gull', 'Ivory Gull', 'Ring billed Gull', 'Slaty backed Gull', 'Western Gull', 'Anna Hummingbird', 'Ruby throated Hummingbird', 'Rufous Hummingbird', 'Green Violetear', 'Long tailed Jaeger', 'Pomarine Jaeger', 'Blue Jay', 'Florida Jay', 'Green Jay', 'Dark eyed Junco', 'Tropical Kingbird', 'Gray Kingbird', 'Belted Kingfisher', 'Green Kingfisher', 'Pied Kingfisher', 'Ringed Kingfisher', 'White breasted Kingfisher', 'Red legged Kittiwake', 'Horned Lark', 'Pacific Loon', 'Mallard', 'Western Meadowlark', 'Hooded Merganser', 'Red breasted Merganser', 'Mockingbird', 'Nighthawk', 'Clark Nutcracker', 'White breasted Nuthatch', 'Baltimore Oriole', 'Hooded Oriole', 'Orchard Oriole', 'Scott Oriole', 'Ovenbird', 'Brown Pelican', 'White Pelican', 'Western Wood Pewee', 'Sayornis', 'American Pipit', 'Whip poor Will', 'Horned Puffin', 'Common Raven', 'White necked Raven', 'American Redstart', 'Geococcyx', 'Loggerhead Shrike', 'Great Grey Shrike', 'Baird Sparrow', 'Black throated Sparrow', 'Brewer Sparrow', 'Chipping Sparrow', 'Clay colored Sparrow', 'House Sparrow', 'Field Sparrow', 'Fox Sparrow', 'Grasshopper Sparrow', 'Harris Sparrow', 'Henslow Sparrow', 'Le Conte Sparrow', 'Lincoln Sparrow', 'Nelson Sharp tailed Sparrow', 'Savannah Sparrow', 'Seaside Sparrow', 'Song Sparrow', 'Tree Sparrow', 'Vesper Sparrow', 'White crowned Sparrow', 'White throated Sparrow', 'Cape Glossy Starling', 'Bank Swallow', 'Barn Swallow', 'Cliff Swallow', 'Tree Swallow', 'Scarlet Tanager', 'Summer Tanager', 'Artic Tern', 'Black Tern', 'Caspian Tern', 'Common Tern', 'Elegant Tern', 'Forsters Tern', 'Least Tern', 'Green tailed Towhee', 'Brown Thrasher', 'Sage Thrasher', 'Black capped Vireo', 'Blue headed Vireo', 'Philadelphia Vireo', 'Red eyed Vireo', 'Warbling Vireo', 'White eyed Vireo', 'Yellow throated Vireo', 'Bay breasted Warbler', 'Black and white Warbler', 'Black throated Blue Warbler', 'Blue winged Warbler', 'Canada Warbler', 'Cape May Warbler', 'Cerulean Warbler', 'Chestnut sided Warbler', 'Golden winged Warbler', 'Hooded Warbler', 'Kentucky Warbler', 'Magnolia Warbler', 'Mourning Warbler', 'Myrtle Warbler', 'Nashville Warbler', 'Orange crowned Warbler', 'Palm Warbler', 'Pine Warbler', 'Prairie Warbler', 'Prothonotary Warbler', 'Swainson Warbler', 'Tennessee Warbler', 'Wilson Warbler', 'Worm eating Warbler', 'Yellow Warbler', 'Northern Waterthrush', 'Louisiana Waterthrush', 'Bohemian Waxwing', 'Cedar Waxwing', 'American Three toed Woodpecker', 'Pileated Woodpecker', 'Red bellied Woodpecker', 'Red cockaded Woodpecker', 'Red headed Woodpecker', 'Downy Woodpecker', 'Bewick Wren', 'Cactus Wren', 'Carolina Wren', 'House Wren', 'Marsh Wren', 'Rock Wren', 'Winter Wren', 'Common Yellowthroat'])",
+        "file_name": "Value('string')",
+        "id": "Value('int64')"
+      }
+    },
+    "duplicate_ids_within_split": 0,
+    "ids_shared_by_train_and_test": 5794,
+    "id_is_row_index": {
+      "test": true,
+      "train": true
+    },
+    "label_filename_mismatches": 0,
+    "file_names_shared_by_train_and_test": 0,
+    "official_metadata": {
+      "files_not_in_official_release": 0,
+      "split_differs_from_official": 0,
+      "label_differs_from_official": 0
+    },
+    "duplicate_file_names_within_split": 0,
+    "label_names_identical_train_test": true,
+    "revisions": {
+      "train": "bd3988995e6db193427255abdebd522afe24ce76",
+      "test": "82447a42c5e05c7fe21cd36accfdf399148e8668"
+    }
+  },
+  "classes": {
+    "num_classes": 200,
+    "train": {
+      "min": 29,
+      "max": 30,
+      "mean": 29.97,
+      "std": 0.17,
+      "imbalance_ratio_max_over_min": 1.03,
+      "classes_with_zero_images": []
+    },
+    "test": {
+      "min": 11,
+      "max": 30,
+      "mean": 28.97,
+      "std": 2.92,
+      "imbalance_ratio_max_over_min": 2.73,
+      "classes_with_zero_images": []
+    },
+    "val_images_per_class_for_smallest_class": {
+      "0.1": 2,
+      "0.15": 4,
+      "0.2": 5
+    },
+    "canonical_partitions": {
+      "train": {
+        "images": 5393,
+        "min_per_class": 26,
+        "max_per_class": 27
+      },
+      "val": {
+        "images": 598,
+        "min_per_class": 2,
+        "max_per_class": 3
+      },
+      "excluded": 3
+    }
+  },
+  "images": {
+    "n_images": 11788,
+    "n_decode_errors": 0,
+    "modes": {
+      "test": {
+        "RGB": 5790,
+        "L": 4
+      },
+      "train": {
+        "RGB": 5990,
+        "L": 4
+      }
+    },
+    "formats": {
+      "JPEG": 11788
+    },
+    "width": {
+      "min": 121.0,
+      "p5": 333.0,
+      "median": 500.0,
+      "mean": 467.887,
+      "p95": 500.0,
+      "max": 500.0
+    },
+    "height": {
+      "min": 120.0,
+      "p5": 299.35,
+      "median": 375.0,
+      "mean": 386.03,
+      "p95": 500.0,
+      "max": 500.0
+    },
+    "shorter_side": {
+      "min": 120.0,
+      "p5": 290.0,
+      "median": 357.0,
+      "mean": 363.357,
+      "p95": 470.0,
+      "max": 500.0
+    },
+    "aspect_ratio": {
+      "min": 0.375,
+      "p5": 0.67,
+      "median": 1.333,
+      "mean": 1.257,
+      "p95": 1.538,
+      "max": 3.597
+    },
+    "n_shorter_side_below_224": 148,
+    "n_grayscale": {
+      "test": 4,
+      "train": 5
+    },
+    "brightness": {
+      "min": 0.082,
+      "p5": 0.286,
+      "median": 0.484,
+      "mean": 0.488,
+      "p95": 0.702,
+      "max": 0.958
+    },
+    "contrast": {
+      "min": 0.03,
+      "p5": 0.09,
+      "median": 0.167,
+      "mean": 0.172,
+      "p95": 0.27,
+      "max": 0.413
+    },
+    "blur_lap_var": {
+      "min": 15.855,
+      "p5": 133.44,
+      "median": 517.466,
+      "mean": 734.047,
+      "p95": 2085.124,
+      "max": 14361.715
+    },
+    "colorfulness": {
+      "min": 0.0,
+      "p5": 11.498,
+      "median": 34.272,
+      "mean": 36.78,
+      "p95": 70.59,
+      "max": 132.974
+    },
+    "normalization_train": {
+      "mean": [
+        0.4856,
+        0.4994,
+        0.4324
+      ],
+      "std": [
+        0.2272,
+        0.2226,
+        0.2613
+      ]
+    },
+    "normalization_imagenet": {
+      "mean": [
+        0.485,
+        0.456,
+        0.406
+      ],
+      "std": [
+        0.229,
+        0.224,
+        0.225
+      ]
+    },
+    "normalization_train_partition": {
+      "mean": [
+        0.4849,
+        0.499,
+        0.4324
+      ],
+      "std": [
+        0.2271,
+        0.2225,
+        0.2613
+      ]
+    }
+  },
+  "quality": {
+    "n_decode_errors": 0,
+    "missing_values": {
+      "label": 0,
+      "file_name": 0,
+      "description": 0
+    },
+    "exact_duplicate_groups": 1,
+    "exact_duplicate_groups_across_train_test": 0,
+    "near_duplicate_pairs_by_threshold": {
+      "2": 8,
+      "4": 8,
+      "6": 12
+    },
+    "near_duplicate_threshold_bits": 6,
+    "near_duplicate_pairs": 12,
+    "near_duplicate_pairs_across_train_test": 5,
+    "near_duplicate_pairs_with_different_labels": 4,
+    "near_duplicate_verdicts": {
+      "duplicate": 9,
+      "false_positive": 3
+    },
+    "train_images_to_drop_for_leakage": 3
+  },
+  "captions": {
+    "captions_per_image": {
+      "10": 11788
+    },
+    "images_without_10_captions": 0,
+    "empty_lines_total": 11788,
+    "tokens_per_caption_train": {
+      "min": 1,
+      "p50": 14,
+      "p90": 21,
+      "p95": 24,
+      "p99": 32,
+      "max": 66
+    },
+    "very_short_captions_le3_tokens": 3,
+    "vocab_by_min_freq": [
+      {
+        "min_freq": 1,
+        "vocab_size": 3882,
+        "train_token_coverage_%": 100.0,
+        "heldout_unk_token_rate_%": 0.198
+      },
+      {
+        "min_freq": 2,
+        "vocab_size": 2113,
+        "train_token_coverage_%": 99.784,
+        "heldout_unk_token_rate_%": 0.302
+      },
+      {
+        "min_freq": 3,
+        "vocab_size": 1564,
+        "train_token_coverage_%": 99.649,
+        "heldout_unk_token_rate_%": 0.386
+      },
+      {
+        "min_freq": 5,
+        "vocab_size": 1186,
+        "train_token_coverage_%": 99.492,
+        "heldout_unk_token_rate_%": 0.539
+      },
+      {
+        "min_freq": 10,
+        "vocab_size": 842,
+        "train_token_coverage_%": 99.216,
+        "heldout_unk_token_rate_%": 0.81
+      },
+      {
+        "min_freq": 20,
+        "vocab_size": 577,
+        "train_token_coverage_%": 98.773,
+        "heldout_unk_token_rate_%": 1.223
+      }
+    ],
+    "words_seen_once_train": 1856,
+    "typo_candidates": 744,
+    "duplicate_captions_within_same_image": 1312,
+    "distinct_train_captions_used_more_than_once": 1606,
+    "captions_with_non_ascii": 56,
+    "characters_removed_by_cleaning": {
+      ",": 103343,
+      ".": 93071,
+      "-": 3769,
+      "'": 3297,
+      "\ufffd": 1700,
+      "/": 531,
+      ";": 460,
+      "&": 368,
+      "\"": 92,
+      "(": 44,
+      ")": 44,
+      ":": 28,
+      "!": 11,
+      "?": 6,
+      "`": 5,
+      "=": 2,
+      "%": 1,
+      "\\": 1
+    },
+    "%_captions_mentioning_left_or_right": 0.038,
+    "%_captions_with_a_color_word": 97.61,
+    "pipeline_captions": {
+      "raw": 117880,
+      "dropped_under_min_tokens": 3,
+      "dropped_repeats_within_image": 1312,
+      "kept": 116565,
+      "kept_per_image": {
+        "min": 7,
+        "max": 10
+      }
+    },
+    "tokens_per_caption_train_partition": {
+      "p50": 14,
+      "p95": 25,
+      "max": 66
+    }
+  },
+  "augment": {
+    "n_train_images_with_box": 5994,
+    "bird_area_%_of_image": {
+      "min": 5.005,
+      "p5": 11.275,
+      "median": 32.215,
+      "mean": 34.969,
+      "p95": 69.499,
+      "max": 100.0
+    },
+    "%_images_bird_under_10%_of_image": 3.35,
+    "center_crop": {
+      "resize_256_center_crop_224": {
+        "mean_bird_visible_%": 89.0,
+        "%_images_bird_fully_inside": 33.47,
+        "%_images_less_than_half_the_bird": 0.2
+      },
+      "resize_224_center_crop_224": {
+        "mean_bird_visible_%": 94.4,
+        "%_images_bird_fully_inside": 54.42,
+        "%_images_less_than_half_the_bird": 0.03
+      }
+    },
+    "random_resized_crop_by_scale_min": [
+      {
+        "scale_min": 0.08,
+        "mean_bird_visible_%": 64.1,
+        "%_crops_with_less_than_half_the_bird": 33.16
+      },
+      {
+        "scale_min": 0.25,
+        "mean_bird_visible_%": 75.7,
+        "%_crops_with_less_than_half_the_bird": 15.03
+      },
+      {
+        "scale_min": 0.4,
+        "mean_bird_visible_%": 84.1,
+        "%_crops_with_less_than_half_the_bird": 4.08
+      },
+      {
+        "scale_min": 0.6,
+        "mean_bird_visible_%": 93.3,
+        "%_crops_with_less_than_half_the_bird": 0.22
+      },
+      {
+        "scale_min": 0.8,
+        "mean_bird_visible_%": 98.6,
+        "%_crops_with_less_than_half_the_bird": 0.0
+      }
+    ]
+  }
+}
