@@ -1,0 +1,48 @@
+# Member 4: ResNet18 transfer-learning experiments on CUB-200-2011.
+# The frozen and fine-tuning runs use the same data split and validation metric
+# as the scratch CNN so their results can be compared fairly.
+
+project:
+  name: cub200_resnet18_transfer_learning
+  num_classes: 200
+  image_size: 224
+  seed: 42
+
+data:
+  model_type: resnet18
+  batch_size: 8
+  num_workers: 0
+  split_config: configs/split_indices.json
+
+experiments:
+  frozen:
+    architecture: ResNet18Encoder
+    pretrained: true
+    freeze_backbone: true
+    epochs: 20
+    head_learning_rate: 0.001
+    backbone_learning_rate: 0.0001  # logged for a common config; unused while frozen
+    weight_decay: 0.0001
+    scheduler:
+      name: ReduceLROnPlateau
+      monitor: val_loss
+      factor: 0.5
+      patience: 3
+      min_lr: 0.000001
+    selection_metric: val_macro_f1
+
+  finetune:
+    architecture: ResNet18Encoder
+    pretrained: true
+    freeze_backbone: false
+    epochs: 20
+    head_learning_rate: 0.001
+    backbone_learning_rate: 0.0001
+    weight_decay: 0.0001
+    scheduler:
+      name: ReduceLROnPlateau
+      monitor: val_loss
+      factor: 0.5
+      patience: 3
+      min_lr: 0.000001
+    selection_metric: val_macro_f1

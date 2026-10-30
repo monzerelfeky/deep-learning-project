@@ -1,0 +1,30 @@
+[
+    {
+        "trial": 1,
+        "params": {
+            "learning_rate": 0.001,
+            "batch_size": 8,
+            "weight_decay": 0.0,
+            "use_augmentation": false
+        },
+        "metrics": {
+            "val_macro_f1": 0.19383939393939392
+        },
+        "recovered_from_log": true,
+        "checkpoint_available": false
+    },
+    {
+        "trial": 2,
+        "params": {
+            "learning_rate": 0.001,
+            "batch_size": 8,
+            "weight_decay": 0.0,
+            "use_augmentation": true
+        },
+        "metrics": {
+            "val_macro_f1": 0.17265
+        },
+        "recovered_from_log": true,
+        "checkpoint_available": false
+    }
+]
