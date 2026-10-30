@@ -1,0 +1,20 @@
+{
+    "Grid Search": {
+        "trial": 3,
+        "learning_rate": 0.001,
+        "batch_size": 8,
+        "weight_decay": 0.0001,
+        "use_augmentation": false,
+        "val_macro_f1": 0.1878796707678286,
+        "checkpoint_available": true
+    },
+    "Random Search": {
+        "trial": 3,
+        "learning_rate": 0.001,
+        "batch_size": 8,
+        "weight_decay": 0.0,
+        "use_augmentation": false,
+        "val_macro_f1": 0.1692480926932146,
+        "checkpoint_available": true
+    }
+}
