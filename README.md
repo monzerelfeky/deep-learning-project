@@ -18,15 +18,23 @@ CUB-200-2011 images ──► Encoder (scratch CNN | ResNet18) ──► feature
 
 ```
 configs/                 YAML experiment configs (one file per experiment family)
+├── data.yaml            Pinned dataset revisions, leakage exclusions, colorization exclusions
+└── split_indices.json   Saved train/validation split (shared by every model)
 data/                    Dataset goes here (git-ignored) — see data/README.md
-notebooks/eda.ipynb      Exploratory data analysis
-outputs/                 Checkpoints, logs, figures (git-ignored)
+docs/eda_findings.md     EDA findings and preprocessing recommendations
+notebooks/eda.ipynb      EDA supplement: saved results + extra exploration
+outputs/                 Checkpoints, logs, figures (git-ignored, except the EDA results in outputs/eda/)
 src/
 ├── cli.py               Entry point: train / evaluate / predict / tune / gradcam
 ├── data/
-│   ├── dataset.py       CUBDataset, split creation, DataLoader factory
-│   ├── transforms.py    Preprocessing + augmentation pipelines
-│   └── captions.py      Caption loading + cleaning (stats in Phase 1, used in Phase 2)
+│   ├── README.md        Data pipeline documentation (start here)
+│   ├── eda.py           Exploratory data analysis (python -m src.data.eda)
+│   ├── dataset.py       Pinned dataset loading, CUBDataset
+│   ├── splitting.py     Stratified split, manifest checks, leakage exclusions
+│   ├── transforms.py    Preprocessing + augmentation pipelines, normalization
+│   ├── augmentation.py  Augmentation visualization
+│   ├── captions.py      Caption splitting + cleaning, vocabulary (stats in Phase 1, used in Phase 2)
+│   └── dataloaders.py   create_dataloaders(): train / val / test DataLoaders
 ├── models/
 │   ├── encoder.py       BaseEncoder — the contract every backbone implements
 │   ├── scratch_cnn.py   4-block CNN trained from scratch
@@ -63,13 +71,21 @@ tests/test_contracts.py  Shape/interface checks every module must pass
 ## Data split
 
 - Official CUB split: 5,994 train / 5,794 test. The **test set is used only for final evaluation**.
-- Validation: stratified 10% of the training set (`data.val_fraction`), fixed by `seed`.
-- Split indices are written to `outputs/splits/` so every member uses identical splits.
+- Validation: stratified 10% of the training set, seed 42.
+- Split indices are saved in `configs/split_indices.json` so every member uses identical splits.
+- 3 train images that are copies of test images are excluded (`configs/data.yaml`), which leaves
+  **5,393 train / 598 validation / 5,794 test**.
+- Usage: `from src.data.dataloaders import create_dataloaders` (see [src/data/README.md](src/data/README.md)).
 
 ## Usage
 
 ```bash
 pip install -r requirements.txt
+
+# Exploratory data analysis: figures, tables and outputs/eda/summary.json (findings: docs/eda_findings.md)
+python -m src.data.eda --out outputs/eda --fetch-cub-meta           # all steps; the first run takes a few minutes
+python -m src.data.eda --out outputs/eda --steps captions augment   # only some steps
+python -m src.data.eda --out outputs/eda_test --sample 200          # quick test on 200 images per split
 
 python -m src.cli train    --config configs/scratch.yaml
 python -m src.cli train    --config configs/transfer.yaml --set train.lr=0.0001
@@ -78,7 +94,8 @@ python -m src.cli predict  --config configs/transfer.yaml --checkpoint outputs/<
 python -m src.cli tune     --config configs/tuning.yaml --strategy grid
 python -m src.cli gradcam  --config configs/transfer.yaml --checkpoint outputs/<run>/best.pt --num-samples 8
 
-pytest tests/
+python -m pytest tests/ -v                      # all tests
+python -m pytest tests/ -v -m "not integration" # offline unit tests (no dataset download)
 ```
 
 ## Phase 1 experiments

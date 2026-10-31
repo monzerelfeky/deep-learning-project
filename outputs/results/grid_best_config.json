@@ -1,0 +1,14 @@
+{
+    "best_params": {
+        "learning_rate": 0.001,
+        "batch_size": 8,
+        "weight_decay": 0.0,
+        "use_augmentation": false
+    },
+    "best_score": 0.19383939393939392,
+    "selection_metric": "val_macro_f1",
+    "mode": "maximize",
+    "best_trial": 1,
+    "recovered_from_log": true,
+    "checkpoint_available": false
+}
