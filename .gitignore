@@ -38,3 +38,8 @@ outputs/results/*
 # Local experiment databases and temporary test artifacts
 *.db
 artifact_test.txt
+
+!outputs/resnet_tuning/
+
+!outputs/resnet_tuning/checkpoints/
+!outputs/resnet_tuning/checkpoints/**

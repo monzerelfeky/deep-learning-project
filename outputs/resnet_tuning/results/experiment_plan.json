@@ -1,0 +1,84 @@
+{
+    "experiment_name": "resnet18_hyperparameter_tuning",
+    "architecture": "ResNet18Encoder",
+    "pretrained": true,
+    "freeze_backbone": false,
+    "optimizer": "AdamW",
+    "scheduler": "ReduceLROnPlateau",
+    "selection_metric": "val_macro_f1",
+    "mode": "maximize",
+    "trials": [
+        {
+            "backbone_lr": 1e-05,
+            "head_lr": 0.0003,
+            "weight_decay": 0.0001,
+            "trial": 1,
+            "epochs": 10,
+            "batch_size": 8,
+            "seed": 42
+        },
+        {
+            "backbone_lr": 1e-05,
+            "head_lr": 0.001,
+            "weight_decay": 0.0001,
+            "trial": 2,
+            "epochs": 10,
+            "batch_size": 8,
+            "seed": 42
+        },
+        {
+            "backbone_lr": 3e-05,
+            "head_lr": 0.0003,
+            "weight_decay": 0.0001,
+            "trial": 3,
+            "epochs": 10,
+            "batch_size": 8,
+            "seed": 42
+        },
+        {
+            "backbone_lr": 3e-05,
+            "head_lr": 0.001,
+            "weight_decay": 0.0001,
+            "trial": 4,
+            "epochs": 10,
+            "batch_size": 8,
+            "seed": 42
+        },
+        {
+            "backbone_lr": 0.0001,
+            "head_lr": 0.0003,
+            "weight_decay": 0.0001,
+            "trial": 5,
+            "epochs": 10,
+            "batch_size": 8,
+            "seed": 42
+        },
+        {
+            "backbone_lr": 0.0001,
+            "head_lr": 0.001,
+            "weight_decay": 0.0001,
+            "trial": 6,
+            "epochs": 10,
+            "batch_size": 8,
+            "seed": 42
+        },
+        {
+            "backbone_lr": 0.0001,
+            "head_lr": 0.001,
+            "weight_decay": 0.001,
+            "trial": 7,
+            "epochs": 10,
+            "batch_size": 8,
+            "seed": 42
+        },
+        {
+            "backbone_lr": 3e-05,
+            "head_lr": 0.001,
+            "weight_decay": 0.001,
+            "trial": 8,
+            "epochs": 10,
+            "batch_size": 8,
+            "seed": 42
+        }
+    ]
+}
